@@ -1,0 +1,10 @@
+metrics_to_run:
+  # This graph is a multi-turn investigation. Single-turn metrics 400 on
+  # traces that contain tool calls.
+  # https://docs.cloud.google.com/gemini-enterprise-agent-platform/optimize/evaluation/manage-metrics
+  #
+  # /app-info 400s on a Workflow root, so generate omits agent_data.agents.
+  # Stamp the investigator catalog onto the trace before grade:
+  #   .venv/bin/python tests/eval/stamp_agents.py artifacts/traces/<trace>.json
+  - multi_turn_trajectory_quality
+  - multi_turn_tool_use_quality

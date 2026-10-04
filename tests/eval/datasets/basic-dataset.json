@@ -1,0 +1,15 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "substrate_run_36078450277",
+      "prompt": {
+        "role": "user",
+        "parts": [
+          {
+            "text": "{\"trigger_source\":\"TEST_OPERATOR\",\"repo\":\"agent-substrate/substrate\",\"run_id\":\"36078450277\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

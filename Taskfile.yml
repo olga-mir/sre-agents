@@ -1,0 +1,335 @@
+version: '3'
+
+dotenv: ['.env']
+
+# GOOGLE_CLOUD_PROJECT can be set in shell env, .env, or CLI (GCP_PROJECT=... or GOOGLE_CLOUD_PROJECT=...)
+
+vars:
+  GCP: '{{.GCP_PROJECT | default .GOOGLE_CLOUD_PROJECT}}'
+  PY: .venv/bin/python
+  CLI: .venv/bin/ci-agent
+  ADK: .venv/bin/adk
+  RUN: '{{.RUN | default "33259998849"}}'
+  REPO: '{{.REPO | default "agent-substrate/substrate"}}'
+  REGION: '{{.REGION | default "us-central1"}}'
+  AGENT_LOCATION: '{{.AGENT_LOCATION | default "us-central1"}}'
+  DC_LOCATION: '{{.DC_LOCATION | default "us-central1"}}'
+  DC_REVISION: '{{.DC_REVISION | default "main"}}'
+  BQ_DATASET: '{{.BQ_DATASET | default "ci_agent_eval"}}'
+  BQ_LOCATION: '{{.BQ_LOCATION | default "us-central1"}}'
+  BQ_SEED: analytics/bq/seed
+  WEB_PORT: '{{.WEB_PORT | default "8080"}}'
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  setup:
+    desc: Create the venv and install the agent, tests, ADK, and the deploy SDK
+    cmds:
+      - uv venv --python 3.12 .venv
+      - uv pip install -e ".[adk,dev,devconnect]"
+      - test -f .env || cp .env.example .env
+      - task: local-token
+      - '{{.PY}} -c "import tree_sitter_go; from tree_sitter import Parser, Language; Parser(Language(tree_sitter_go.language())); print(''go grammar ok'')"'
+
+  local-token:
+    desc: Write a GITHUB_TOKEN into .env from the gh CLI (local dev only)
+    status:
+      - grep -q '^GITHUB_TOKEN=.' .env
+    cmds:
+      - 'printf "GITHUB_TOKEN=%s\n" "$(gh auth token)" >> .env'
+      - 'echo "wrote GITHUB_TOKEN into .env"'
+
+  test:
+    desc: Run the test suite (no network, no model)
+    cmds: ['{{.PY}} -m pytest -q']
+
+  auth:
+    desc: Show which GitHub and GCP identities the agent will use
+    cmds:
+      - gh auth status
+      - gcloud config get-value account
+      - 'echo "project: {{.GCP}}"'
+
+  # --- Agent Runtime Deployment & Invocation ---------------------------------
+
+  deploy:sdk:
+    desc: Install the local Agent Platform SDK (devconnect extra) if it is missing
+    status:
+      - '{{.PY}} -c "import agentplatform"'
+    cmds:
+      - uv pip install -e ".[devconnect]"
+
+  deploy:
+    desc: Idempotently deploy/update e2e-agent on Agent Runtime
+    deps: [deploy:sdk]
+    cmds:
+      - |
+        GOOGLE_CLOUD_PROJECT={{.GCP}} \
+        AGENT_LOCATION={{.AGENT_LOCATION}} \
+        DC_LOCATION={{.DC_LOCATION}} \
+        DC_REVISION={{.DC_REVISION}} \
+        {{if .ENGINE}}ENGINE_ID={{.ENGINE}}{{end}} \
+        {{.PY}} deploy/deploy_agent.py
+
+  invoke:
+    desc: 'Invoke the deployed e2e-agent. RUN=<id>'
+    deps: [deploy:sdk]
+    cmds:
+      - |
+        GOOGLE_CLOUD_PROJECT={{.GCP}} \
+        AGENT_LOCATION={{.AGENT_LOCATION}} \
+        RUN={{.RUN}} \
+        REPO={{.REPO}} \
+        {{if .ENGINE}}ENGINE_ID={{.ENGINE}}{{end}} \
+        {{.PY}} deploy/invoke_agent.py
+
+  deploy:sre-coordinator:
+    desc: Idempotently deploy/update sre-coordinator on Agent Runtime (local source bundle)
+    deps: [deploy:sdk]
+    cmds:
+      - |
+        GOOGLE_CLOUD_PROJECT={{.GCP}} \
+        AGENT_LOCATION={{.AGENT_LOCATION}} \
+        {{if .STAGING_BUCKET}}STAGING_BUCKET={{.STAGING_BUCKET}}{{end}} \
+        {{if .ENGINE}}ENGINE_ID={{.ENGINE}}{{end}} \
+        {{.PY}} deploy/deploy_sre_coordinator.py
+
+  deployments:
+    desc: List the Agent Runtime instances in the project
+    deps: [deploy:sdk]
+    cmds:
+      - |
+        GOOGLE_CLOUD_PROJECT={{.GCP}} {{.PY}} -c "
+        import agentplatform, os
+        client = agentplatform.Client(project=os.environ['GOOGLE_CLOUD_PROJECT'], location='{{.AGENT_LOCATION}}')
+        for r in client.runtimes.list():
+            print(f'{r.api_resource.name}\t{getattr(r.api_resource, \"display_name\", \"\")}')
+        "
+
+  publish:list:
+    desc: List Gemini Enterprise apps in the project (agents-cli)
+    cmds:
+      - |
+        if ! command -v agents-cli >/dev/null 2>&1; then
+          echo "agents-cli not on PATH. Install: uv tool install google-agents-cli" >&2
+          exit 1
+        fi
+        agents-cli publish gemini-enterprise --list --project-id {{.GCP}}
+
+  publish:
+    desc: 'Register e2e-agent on a Gemini Enterprise app (ADK :streamQuery). GE_APP=<full app resource name>'
+    deps: [deploy:sdk]
+    cmds:
+      - |
+        set -euo pipefail
+        if ! command -v agents-cli >/dev/null 2>&1; then
+          echo "agents-cli not on PATH. Install: uv tool install google-agents-cli" >&2
+          exit 1
+        fi
+        APP="{{.GE_APP | default .GEMINI_ENTERPRISE_APP_ID}}"
+        if [ -z "$APP" ]; then
+          echo "Set GE_APP to the Gemini Enterprise app resource name, e.g." >&2
+          echo "  task publish:list" >&2
+          echo "  task publish GE_APP=projects/{{.GCP}}/locations/global/collections/default_collection/engines/APP_ID" >&2
+          exit 1
+        fi
+        ENGINE="{{.ENGINE}}"
+        if [ -z "$ENGINE" ]; then
+          ENGINE="$(GOOGLE_CLOUD_PROJECT={{.GCP}} {{.PY}} -c "
+        import agentplatform, os, sys
+        client = agentplatform.Client(project=os.environ['GOOGLE_CLOUD_PROJECT'], location='{{.AGENT_LOCATION}}')
+        for r in client.runtimes.list():
+            if getattr(r.api_resource, 'display_name', None) == 'e2e-agent':
+                print(r.api_resource.name)
+                sys.exit(0)
+        sys.exit('no Agent Runtime named e2e-agent; pass ENGINE=projects/.../reasoningEngines/...')
+        ")"
+        fi
+        echo "Publishing $ENGINE to $APP as ADK..."
+        agents-cli publish gemini-enterprise \
+          --registration-type adk \
+          --deployment-target agent_runtime \
+          --agent-runtime-id "$ENGINE" \
+          --gemini-enterprise-app-id "$APP" \
+          --display-name e2e-agent \
+          --description "e2e-agent investigates a failed GitHub Actions run" \
+          --tool-description "Investigate a failed GitHub Actions run. Pass TriggerEvent JSON with repo and run_id, e.g. {\"trigger_source\":\"TEST_OPERATOR\",\"repo\":\"owner/repo\",\"run_id\":\"123\"}." \
+          --project-id {{.GCP}}
+
+  # --- Core Execution --------------------------------------------------------
+
+  investigate:
+    desc: 'Run the whole graph on a failed run. RUN=<id>'
+    cmds:
+      - 'GOOGLE_CLOUD_PROJECT={{.GCP}} {{.CLI}} --repo {{.REPO}} investigate --run {{.RUN}} --out runs'
+
+  deep-dive:
+    desc: 'Resume investigation with feedback. FEEDBACK="..."'
+    cmds:
+      - 'GOOGLE_CLOUD_PROJECT={{.GCP}} {{.CLI}} --repo {{.REPO}} investigate --run {{.RUN}} --out runs --feedback "{{.FEEDBACK}}"'
+
+  web:
+    desc: 'Open the ADK dev UI on the graph. WEB_PORT=<port> to override (default 8080)'
+    cmds: ['GOOGLE_CLOUD_PROJECT={{.GCP}} .venv/bin/adk web agents --port {{.WEB_PORT}}']
+
+  clean:
+    desc: Delete cached source bytes and past run dumps
+    cmds:
+      - rm -rf runs ~/.cache/ci-agent
+
+  # --- Local Debug & Auxiliary Tools ----------------------------------------
+
+  debug:report:
+    desc: 'Print report from last run of RUN=<id>'
+    cmds: ['cat runs/{{.RUN}}/report.md']
+
+  debug:trace:
+    desc: 'Print tool calls the agent made, one per line. RUN=<id>'
+    cmds:
+      - "{{.PY}} -c \"import json,sys;[print(f\\\"[{r['node']}] {c['name']}({json.dumps(c['args'])[:110]})\\\") for l in open('runs/{{.RUN}}/trace.jsonl') for r in [json.loads(l)] for c in r['calls'] if c['name']!='adk_request_input']\""
+
+  debug:evidence:
+    desc: 'List bytes the agent actually read, by path. RUN=<id>'
+    cmds: ['find runs/{{.RUN}}/evidence -type f | sed "s|runs/{{.RUN}}/evidence/||" | sort']
+
+  debug:triage:
+    desc: 'Triage a failed run with token accounting. RUN=<id>'
+    cmds: ['{{.CLI}} --repo {{.REPO}} triage --run {{.RUN}}']
+
+  debug:pin:
+    desc: 'Resolve run to frozen shas, PR and failed jobs. RUN=<id>'
+    cmds: ['{{.CLI}} --repo {{.REPO}} pin --run {{.RUN}}']
+
+  debug:failures:
+    desc: 'List every address in failed jobs. RUN=<id>'
+    cmds: ['{{.CLI}} --repo {{.REPO}} failures --run {{.RUN}}']
+
+  debug:outline:
+    desc: 'Outline file. [SHA=<sha>] [TARGET_PATH=<repo-relative path>]'
+    cmds: ['{{.CLI}} --repo {{.REPO}} outline {{if .SHA}}--sha {{.SHA}}{{end}} {{if .TARGET_PATH}}--path {{.TARGET_PATH}}{{end}}']
+
+  debug:symbol:
+    desc: 'Read symbol by name. [SHA=<sha>] [TARGET_PATH=<path>] NAME=<name>'
+    cmds: ['{{.CLI}} --repo {{.REPO}} symbol {{if .SHA}}--sha {{.SHA}}{{end}} {{if .TARGET_PATH}}--path {{.TARGET_PATH}}{{end}} --name "{{.NAME}}"']
+
+  debug:at-line:
+    desc: 'Read symbol containing line. [SHA=<sha>] [TARGET_PATH=<path>] LINE=<n>'
+    cmds: ['{{.CLI}} --repo {{.REPO}} at-line {{if .SHA}}--sha {{.SHA}}{{end}} {{if .TARGET_PATH}}--path {{.TARGET_PATH}}{{end}} --line {{.LINE}}']
+
+  debug:changed:
+    desc: 'Changed symbols for file. [BASE=<sha>] [SHA=<sha>] [TARGET_PATH=<path>]'
+    cmds:
+      - '{{.CLI}} --repo {{.REPO}} changed {{if .BASE}}--base {{.BASE}}{{end}} {{if .SHA}}--sha {{.SHA}}{{end}} {{if .TARGET_PATH}}--path {{.TARGET_PATH}}{{end}}'
+
+  debug:blame:
+    desc: 'Which commit last touched a span. [SHA=<sha>] [TARGET_PATH=<path>] START=<n> END=<n>'
+    cmds: ['{{.CLI}} --repo {{.REPO}} blame {{if .SHA}}--sha {{.SHA}}{{end}} {{if .TARGET_PATH}}--path {{.TARGET_PATH}}{{end}} --start {{.START}} --end {{.END}}']
+
+  debug:logs:
+    desc: Tail deployed agent logs from Cloud Logging
+    cmds:
+      - |
+        gcloud logging read \
+          'resource.type="aiplatform.googleapis.com/ReasoningEngine"' \
+          --project {{.GCP}} --limit 50 --freshness 1h \
+          --format='table(timestamp,severity,textPayload)'
+
+  # --- Eval warehouse (BigQuery) -------------------------------------------
+
+  bq:enable:
+    desc: Enable the BigQuery API on the project
+    cmds:
+      - CLOUDSDK_METRICS_REQUEST_ATTRIBUTION="agent-skills/1.0 (skill:bigquery-basics)" gcloud services enable bigquery.googleapis.com --project {{.GCP}} --quiet
+
+  bq:provision:
+    desc: Create ci_agent_eval dataset, tables, and views
+    cmds:
+      - |
+        set -euo pipefail
+        CLOUDSDK_METRICS_REQUEST_ATTRIBUTION="agent-skills/1.0 (skill:bigquery-basics)" \
+          bq --location={{.BQ_LOCATION}} --project_id={{.GCP}} mk --dataset \
+            --description "CI-agent eval: GitHub inputs, agent outputs, outcomes" \
+            {{.GCP}}:{{.BQ_DATASET}} 2>/dev/null || true
+        sed "s/PROJECT_ID/{{.GCP}}/g; s/DATASET_ID/{{.BQ_DATASET}}/g" analytics/bq/ddl.sql \
+          | bq query --use_legacy_sql=false --project_id={{.GCP}} --location={{.BQ_LOCATION}} --quiet
+
+  bq:collect:
+    desc: 'Latest successful (non-scan) Actions runs as NDJSON. CONCLUSION=success|failure|any LIMIT=25 WORKFLOW=pr-workflow'
+    cmds:
+      - |
+        {{.CLI}} --repo {{.REPO}} analytics-collect \
+          --out {{.BQ_SEED}} \
+          --conclusion {{.CONCLUSION | default "success"}} \
+          --limit {{.LIMIT | default "25"}} \
+          {{if .WORKFLOW}}--workflow {{.WORKFLOW}}{{end}} \
+          {{if .INCLUDE_SCANS}}--include-scans{{end}}
+
+  bq:seed:
+    desc: MERGE collected GitHub runs/jobs into BigQuery
+    deps: [bq:provision, bq:collect]
+    cmds:
+      - |
+        set -euo pipefail
+        load() {
+          local table="$1" file="$2" schema="$3"
+          if [ ! -s "$file" ]; then
+            echo "skip empty $file"
+            return 0
+          fi
+          bq load --replace --source_format=NEWLINE_DELIMITED_JSON \
+            --project_id={{.GCP}} --location={{.BQ_LOCATION}} \
+            {{.GCP}}:{{.BQ_DATASET}}._stg_${table} "$file" "$schema"
+        }
+        load github_runs {{.BQ_SEED}}/github_runs.jsonl analytics/bq/schema/github_runs.json
+        load github_jobs {{.BQ_SEED}}/github_jobs.jsonl analytics/bq/schema/github_jobs.json
+        sed "s/PROJECT_ID/{{.GCP}}/g; s/DATASET_ID/{{.BQ_DATASET}}/g" analytics/bq/merge_github.sql \
+          | bq query --use_legacy_sql=false --project_id={{.GCP}} --location={{.BQ_LOCATION}} --quiet
+
+  bq:seed-investigations:
+    desc: MERGE local runs/<id>/ dumps into investigations/findings/path_hops
+    deps: [bq:provision]
+    cmds:
+      - '{{.CLI}} --repo {{.REPO}} analytics-from-dumps --dumps runs --out {{.BQ_SEED}}'
+      - |
+        set -euo pipefail
+        load() {
+          local table="$1" file="$2" schema="$3"
+          if [ ! -s "$file" ]; then
+            echo "skip empty $file"
+            return 0
+          fi
+          bq load --replace --source_format=NEWLINE_DELIMITED_JSON \
+            --project_id={{.GCP}} --location={{.BQ_LOCATION}} \
+            {{.GCP}}:{{.BQ_DATASET}}._stg_${table} "$file" "$schema"
+        }
+        load investigations {{.BQ_SEED}}/investigations.jsonl analytics/bq/schema/investigations.json
+        load findings {{.BQ_SEED}}/findings.jsonl analytics/bq/schema/findings.json
+        load path_hops {{.BQ_SEED}}/path_hops.jsonl analytics/bq/schema/path_hops.json
+        sed "s/PROJECT_ID/{{.GCP}}/g; s/DATASET_ID/{{.BQ_DATASET}}/g" analytics/bq/merge_investigations.sql \
+          | bq query --use_legacy_sql=false --project_id={{.GCP}} --location={{.BQ_LOCATION}} --quiet
+
+  bq:query:
+    desc: 'Run a canned analytics query. Q=ci_health|verdict_rates|path_reach|outcomes'
+    cmds:
+      - |
+        Q="{{.Q | default "ci_health"}}"
+        sed "s/PROJECT_ID/{{.GCP}}/g; s/DATASET_ID/{{.BQ_DATASET}}/g" "analytics/bq/queries/${Q}.sql" \
+          | bq query --use_legacy_sql=false --project_id={{.GCP}} --location={{.BQ_LOCATION}}
+
+  bq:iam:
+    desc: 'Grant dataEditor on the eval dataset. MEMBER=user:you@x or serviceAccount:sa@...'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ -z "{{.MEMBER}}" ]; then
+          echo "Set MEMBER, e.g." >&2
+          echo "  task bq:iam MEMBER=user:you@example.com" >&2
+          echo "  task bq:iam MEMBER=serviceAccount:SA@{{.GCP}}.iam.gserviceaccount.com" >&2
+          exit 1
+        fi
+        bq add-iam-policy-binding \
+          --member="{{.MEMBER}}" \
+          --role=roles/bigquery.dataEditor \
+          {{.GCP}}:{{.BQ_DATASET}}

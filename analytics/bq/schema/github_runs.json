@@ -1,0 +1,21 @@
+[
+  {"name": "repo", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "run_id", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "workflow_id", "type": "INTEGER", "mode": "NULLABLE"},
+  {"name": "workflow_name", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "workflow_path", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "event", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "status", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "conclusion", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "run_attempt", "type": "INTEGER", "mode": "NULLABLE"},
+  {"name": "head_branch", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "head_sha", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "head_repo", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "actor", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "display_title", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "html_url", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "created_at", "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "updated_at", "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "run_started_at", "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "ingested_at", "type": "TIMESTAMP", "mode": "NULLABLE"}
+]

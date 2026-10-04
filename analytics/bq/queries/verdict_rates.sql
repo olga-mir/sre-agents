@@ -1,0 +1,2 @@
+SELECT * FROM `PROJECT_ID.DATASET_ID.v_verdict_rates`
+ORDER BY n DESC;

@@ -1,0 +1,9 @@
+[
+  {"name": "investigation_id", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "seq", "type": "INTEGER", "mode": "REQUIRED"},
+  {"name": "tool_name", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "path", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "sha", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "symbol", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "ingested_at", "type": "TIMESTAMP", "mode": "NULLABLE"}
+]

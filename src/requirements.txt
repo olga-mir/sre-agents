@@ -1,0 +1,25 @@
+# Deps for the Developer-Connect source-based Agent Runtime deploy of
+# ci_agent (see ../deploy/deploy_agent.py). developer_connect_source
+# checks out with dir="src", so this file sits at the checkout root and
+# ci_agent/ is importable directly underneath it.
+
+httpx==0.28.1
+pydantic==2.13.5
+tree-sitter==0.26.0
+tree-sitter-language-pack==1.16.1
+tree-sitter-go==0.25.0
+PyJWT[crypto]==2.13.0
+google-cloud-secret-manager==2.30.0
+google-cloud-bigquery==3.45.0
+certifi==2026.7.22
+google-adk[a2a,otel-gcp]==2.8.0
+# Prompt bodies are uploaded to GCS by the GenAI instrumentor (see
+# OTEL_INSTRUMENTATION_GENAI_COMPLETION_HOOK in deploy/deploy_agent.py).
+# fsspec 2025.10.0 is the version Cloud Trace documents as supporting that
+# upload; later releases are not all compatible.
+opentelemetry-instrumentation-google-genai>=0.7b1,<1
+fsspec[gcs]==2025.10.0
+# 2.1.3 ships agentplatform.frameworks. The slim google-cloud-agentplatform
+# package is not enough here: AdkApp.set_up() and the runtime telemetry
+# harness both import google.cloud.aiplatform.
+google-cloud-aiplatform[agent_engines]==2.1.3

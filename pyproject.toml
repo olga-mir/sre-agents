@@ -1,0 +1,54 @@
+[project]
+name = "ci-agent"
+version = "0.1.0"
+description = "Source-code comprehension layer for the CI/E2E investigation agent (GEAP)"
+# 3.11 is the floor because that is what Agent Runtime runs: `adk deploy
+# agent_engine` generates a `FROM python:3.11-slim` Dockerfile and there is no
+# flag to change it. Keep this honest or the deployed container diverges from
+# what the lockfile was resolved against.
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.13.5",
+    "tree-sitter>=0.26.0",
+    "tree-sitter-language-pack>=1.16.1",
+    "tree-sitter-go>=0.25.0",
+    "PyJWT[crypto]>=2.13.0",
+]
+
+[project.optional-dependencies]
+adk = ["google-adk[a2a,mcp]>=2.8.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
+dev = ["pytest>=9.1.1", "pytest-asyncio>=1.4.0"]
+# Local SDK for deploy/deploy_agent.py. The runtime image pins its own copy
+# in src/requirements.txt.
+devconnect = ["google-cloud-aiplatform[agent_engines]>=2.1.3"]
+
+[project.scripts]
+ci-agent = "ci_agent.cli:main"
+
+[project.entry-points."opentelemetry_otlp_credential_provider"]
+ci_agent_gcp = "ci_agent.otel_auth:gcp_session"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ci_agent"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/ci_agent_otel_auth.pth" = "ci_agent_otel_auth.pth"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+# agents-cli playground/run invoke `uv run adk ...` with no flags. This uv
+# (0.7) has no default-extras, so the adk extra is also a default group.
+# Otherwise uv finds no project `adk` and executes the pipx binary, which
+# cannot import ci_agent.
+[dependency-groups]
+adk = ["google-adk[a2a,mcp]>=2.8.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
+
+[tool.uv]
+default-groups = ["adk"]

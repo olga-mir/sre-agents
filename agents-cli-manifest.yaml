@@ -1,0 +1,17 @@
+name: sre-agents
+acli_version: "1.7.0"
+agent_directory: app
+region: us-central1
+base_template: adk
+language: python
+framework: google-adk
+create_params:
+  # Workflow(name=...) in src/ci_agent/agent/agent.py. Telemetry reports this
+  # as gen_ai.agent.name.
+  root_agent_name: sre_investigation
+  # This repo deploys through deploy/deploy_agent.py, not agents-cli deploy.
+  deployment_target: none
+  session_type: none
+  cicd_runner: skip
+  agent_gateway: false
+  agent_guidance_filename: AGENTS.md
