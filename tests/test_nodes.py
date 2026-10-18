@@ -2,13 +2,13 @@
 
 import pytest
 
-from ci_agent.agent import nodes
-from ci_agent.agent.nodes import _banner, branch_guard, render_report, trigger_router
-from ci_agent.agent.state import (
+from e2e_agent.agent import nodes
+from e2e_agent.agent.nodes import _banner, branch_guard, render_report, trigger_router
+from e2e_agent.agent.state import (
     CodeFinding, DeepDiveFeedback, EvidenceRef, InvestigationSummary,
     TriggerEvent, merge_summary,
 )
-from ci_agent.store import evidence_filename
+from e2e_agent.store import evidence_filename
 
 HEAD = "h" * 40
 BASE = "b" * 40
@@ -46,7 +46,7 @@ class FakeGitHub:
     def __init__(self, repo): self.repo = repo
 
     async def compare_files(self, base_sha, head_sha):
-        from ci_agent.github.client import ChangedFile
+        from e2e_agent.github.client import ChangedFile
         return [ChangedFile(path=p, status="modified", additions=1, deletions=0)
                 for p in self.changed]
 
@@ -233,7 +233,7 @@ async def test_record_outcome_awaits_human_before_feedback(monkeypatch):
         seen.update(kwargs)
         return {"ok": True}
 
-    monkeypatch.setattr("ci_agent.analytics.writer.record_outcome", fake_write)
+    monkeypatch.setattr("e2e_agent.analytics.writer.record_outcome", fake_write)
     ctx = FakeCtx(state={"run_context": RUN_CONTEXT, "governance": {
         "session_id": "sess-1", "run_id": "99", "trigger_source": "TEST_OPERATOR",
         "budget": {"max_turns": 3, "current_turn": 1, "token_limit": 0, "tokens_used": 0},
@@ -267,7 +267,7 @@ async def test_record_outcome_forwards_file_hops_from_the_session(monkeypatch):
     class Session:
         events = [Event()]
 
-    monkeypatch.setattr("ci_agent.analytics.writer.record_outcome", fake_write)
+    monkeypatch.setattr("e2e_agent.analytics.writer.record_outcome", fake_write)
     ctx = FakeCtx(state={"run_context": RUN_CONTEXT, "governance": {
         "session_id": "sess-1", "run_id": "99", "trigger_source": "TEST_OPERATOR",
     }})
@@ -300,7 +300,7 @@ async def test_record_outcome_copies_adk_state_without_indexing_it(monkeypatch):
         def __getitem__(self, key):
             raise KeyError(key)
 
-    monkeypatch.setattr("ci_agent.analytics.writer.record_outcome", fake_write)
+    monkeypatch.setattr("e2e_agent.analytics.writer.record_outcome", fake_write)
     ctx = FakeCtx(state=AdkState({"run_context": RUN_CONTEXT}))
     summary = InvestigationSummary(
         failure_id="primary", confidence=0.4, one_line_summary="x").model_dump()
@@ -310,7 +310,7 @@ async def test_record_outcome_copies_adk_state_without_indexing_it(monkeypatch):
 
 
 async def test_record_outcome_finishes_after_deep_dive_feedback(monkeypatch):
-    monkeypatch.setattr("ci_agent.analytics.writer.record_outcome",
+    monkeypatch.setattr("e2e_agent.analytics.writer.record_outcome",
                         lambda **kwargs: {"ok": True})
     ctx = FakeCtx(state={"run_context": RUN_CONTEXT,
                          "engineer_feedback": "look at the listen address"})

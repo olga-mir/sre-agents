@@ -1,5 +1,5 @@
 [project]
-name = "ci-agent"
+name = "e2e-agent"
 version = "0.1.0"
 description = "Source-code comprehension layer for the CI/E2E investigation agent (GEAP)"
 # 3.11 is the floor because that is what Agent Runtime runs: `adk deploy
@@ -17,38 +17,45 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-adk = ["google-adk[a2a,mcp]>=2.8.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
+adk = ["google-adk[a2a,mcp]>=2.11.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
 dev = ["pytest>=9.1.1", "pytest-asyncio>=1.4.0"]
 # Local SDK for deploy/deploy_agent.py. The runtime image pins its own copy
 # in src/requirements.txt.
 devconnect = ["google-cloud-aiplatform[agent_engines]>=2.1.3"]
 
 [project.scripts]
-ci-agent = "ci_agent.cli:main"
+e2e-agent = "e2e_agent.cli:main"
 
 [project.entry-points."opentelemetry_otlp_credential_provider"]
-ci_agent_gcp = "ci_agent.otel_auth:gcp_session"
+e2e_agent_gcp = "e2e_agent.otel_auth:gcp_session"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ci_agent"]
+packages = ["src/e2e_agent"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"src/ci_agent_otel_auth.pth" = "ci_agent_otel_auth.pth"
+"src/e2e_agent_otel_auth.pth" = "e2e_agent_otel_auth.pth"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Fires while importing LlmAgent, from opentelemetry-api. google-adk 2.11.0
+# still caps opentelemetry-api at <=1.42.1. The warning is fixed in
+# opentelemetry-api 1.43.0 (open-telemetry/opentelemetry-python#5231), which
+# that cap excludes.
+filterwarnings = [
+    "ignore:SelectableGroups dict interface is deprecated:DeprecationWarning:opentelemetry.util._importlib_metadata",
+]
 
 # agents-cli playground/run invoke `uv run adk ...` with no flags. This uv
 # (0.7) has no default-extras, so the adk extra is also a default group.
 # Otherwise uv finds no project `adk` and executes the pipx binary, which
-# cannot import ci_agent.
+# cannot import e2e_agent.
 [dependency-groups]
-adk = ["google-adk[a2a,mcp]>=2.8.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
+adk = ["google-adk[a2a,mcp]>=2.11.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
 
 [tool.uv]
 default-groups = ["adk"]

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-_PROVIDER = "ci_agent_gcp"
+_PROVIDER = "e2e_agent_gcp"
 _ENV = "OTEL_PYTHON_EXPORTER_OTLP_HTTP_CREDENTIAL_PROVIDER"
 _ENDPOINT_VARS = (
     "OTEL_EXPORTER_OTLP_ENDPOINT",

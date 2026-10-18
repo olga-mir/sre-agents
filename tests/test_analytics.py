@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from ci_agent.analytics.github_rows import is_scan_workflow, job_row, run_row
-from ci_agent.analytics.investigation_rows import (
+from e2e_agent.analytics.github_rows import is_scan_workflow, job_row, run_row
+from e2e_agent.analytics.investigation_rows import (
     finding_row, path_hop_rows, rows_from_dump, session_trace,
 )
 
@@ -163,21 +163,21 @@ def test_rows_from_dump(tmp_path: Path):
 
 def test_writes_disabled_without_project(monkeypatch):
     monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
-    monkeypatch.setenv("CI_AGENT_BQ_WRITE", "1")
-    from ci_agent.analytics.writer import record_outcome, writes_enabled
+    monkeypatch.setenv("E2E_AGENT_BQ_WRITE", "1")
+    from e2e_agent.analytics.writer import record_outcome, writes_enabled
     assert writes_enabled() is False
     assert record_outcome(state={}, summary={"failure_id": "p"})["skipped"] is True
 
 
 def test_writes_disabled_by_flag(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-gcp-project")
-    monkeypatch.setenv("CI_AGENT_BQ_WRITE", "0")
-    from ci_agent.analytics.writer import writes_enabled
+    monkeypatch.setenv("E2E_AGENT_BQ_WRITE", "0")
+    from e2e_agent.analytics.writer import writes_enabled
     assert writes_enabled() is False
 
 
 def test_merge_uses_parameterized_sql(monkeypatch):
-    from ci_agent.analytics import writer
+    from e2e_agent.analytics import writer
 
     class FakeJob:
         def result(self, timeout=None, **kwargs):
@@ -199,7 +199,7 @@ def test_merge_uses_parameterized_sql(monkeypatch):
     FakeClient.calls = []
     FakeClient.params = []
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-gcp-project")
-    monkeypatch.setenv("CI_AGENT_BQ_WRITE", "1")
+    monkeypatch.setenv("E2E_AGENT_BQ_WRITE", "1")
     monkeypatch.setenv("BQ_DATASET", "ci_agent_eval")
     monkeypatch.setattr(writer, "_merge", writer._merge)
     import google.cloud.bigquery as bq
@@ -236,10 +236,10 @@ def test_merge_uses_parameterized_sql(monkeypatch):
 
 
 def test_write_failure_is_swallowed(monkeypatch):
-    from ci_agent.analytics import writer
+    from e2e_agent.analytics import writer
 
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-gcp-project")
-    monkeypatch.setenv("CI_AGENT_BQ_WRITE", "1")
+    monkeypatch.setenv("E2E_AGENT_BQ_WRITE", "1")
     monkeypatch.setattr(writer.time, "sleep", lambda _n: None)
 
     def boom(*_a, **_k):
@@ -256,7 +256,7 @@ def test_write_failure_is_swallowed(monkeypatch):
 
 
 def test_bq_timeout_cancels_the_job(monkeypatch):
-    from ci_agent.analytics import writer
+    from e2e_agent.analytics import writer
 
     class FakeJob:
         def result(self, timeout=None, **kwargs):
@@ -281,7 +281,7 @@ def test_bq_timeout_cancels_the_job(monkeypatch):
 
     FakeJob.cancelled = 0
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "example-gcp-project")
-    monkeypatch.setenv("CI_AGENT_BQ_WRITE", "1")
+    monkeypatch.setenv("E2E_AGENT_BQ_WRITE", "1")
     monkeypatch.setattr(writer.time, "sleep", lambda _n: None)
     import google.cloud.bigquery as bq
     monkeypatch.setattr(bq, "Client", FakeClient)

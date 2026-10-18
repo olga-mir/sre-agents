@@ -50,7 +50,7 @@ root_agent = Workflow(
 )
 
 app = App(
-    name="ci_agent",
+    name="e2e_agent",
     root_agent=root_agent,
     resumability_config=ResumabilityConfig(is_resumable=True),
     # No events_compaction_config: an LLM summarizer over the investigator's

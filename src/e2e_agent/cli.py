@@ -21,7 +21,7 @@ from .run_context import RunContext, pin_run_context
 from .store import DiskStore
 from .tools.code_tools import CodeTools
 
-DEFAULT_CACHE = os.path.expanduser("~/.cache/ci-agent")
+DEFAULT_CACHE = os.path.expanduser("~/.cache/e2e-agent")
 
 
 def _tokens(text: str) -> int:
@@ -66,7 +66,7 @@ async def _resolve_sha(gh: GitHub, sha: Optional[str]) -> str:
 
 async def cmd_outline(args) -> None:
     if not args.path:
-        print("error: --path argument is required (e.g. task debug:outline PATH=main.go)")
+        print("error: --path argument is required (e.g. e2e-agent outline --path main.go)")
         return
     gh, tools = await _tools(args.repo, args.run or "adhoc", args.cache)
     async with gh:
@@ -269,8 +269,8 @@ async def cmd_analytics_from_dumps(args) -> None:
 
 def main() -> None:
     load_dotenv()
-    p = argparse.ArgumentParser(prog="ci-agent", description=__doc__)
-    p.add_argument("--repo", default=os.environ.get("CI_AGENT_REPO",
+    p = argparse.ArgumentParser(prog="e2e-agent", description=__doc__)
+    p.add_argument("--repo", default=os.environ.get("E2E_AGENT_REPO",
                                                     "agent-substrate/substrate"))
     p.add_argument("--cache", default=DEFAULT_CACHE)
     sub = p.add_subparsers(dest="cmd", required=True)

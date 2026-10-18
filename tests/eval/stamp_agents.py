@@ -25,7 +25,7 @@ from pathlib import Path
 
 from google.adk.utils.agent_info import get_tools_info
 
-from ci_agent.agent.nodes import deep_dive_agent, investigator_agent
+from e2e_agent.agent.nodes import deep_dive_agent, investigator_agent
 
 # Event authors on a generated trace. Not Workflow nodes: those are
 # FunctionNodes, and the metrics look up tools by the LLM event author.

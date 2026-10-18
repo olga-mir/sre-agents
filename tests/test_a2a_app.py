@@ -1,6 +1,6 @@
 """Smoke-test that the Agent Runtime A2A object is constructible."""
 
-from ci_agent.agent.a2a_app import a2a_agent
+from e2e_agent.agent.a2a_app import a2a_agent
 
 
 def test_a2a_agent_registers_message_send():

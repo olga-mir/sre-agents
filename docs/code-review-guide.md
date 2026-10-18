@@ -1,6 +1,6 @@
 # Code review guide
 
-For `src/ci_agent` and `deploy/`: an ADK `Workflow` graph that runs on Agent
+For `src/e2e_agent` and `deploy/`: an ADK `Workflow` graph that runs on Agent
 Runtime, drives Gemini with model-chosen tool calls, reads GitHub, writes
 BigQuery and GCS, and pauses for a human. That shape decides what a review here
 has to look for, which is not what a review of a request/response service looks

@@ -1,6 +1,6 @@
 # Building the Graph: What the ADK Runtime Corrected
 
-**Status:** active. Implementation record for the graph in `src/ci_agent/agent/`,
+**Status:** active. Implementation record for the graph in `src/e2e_agent/agent/`,
 built against **ADK 2.8.0** and run end to end against real failed runs in
 [`agent-substrate/substrate`](https://github.com/agent-substrate/substrate).
 
@@ -118,7 +118,7 @@ re-investigated and returned `FLAKE_SUSPECTED`, correctly marked
 
 `InMemoryRunner` keeps artifacts in memory, so without a dump the evidence a run
 read disappears with the process — which makes a postmortem impossible and makes
-the verifier's referential check unauditable by a human. `ci-agent investigate
+the verifier's referential check unauditable by a human. `e2e-agent investigate
 --out runs` writes, per run:
 
 | File | What it answers |

@@ -2,10 +2,10 @@ import asyncio
 
 import pytest
 
-from ci_agent.github.client import ChangedFile, Hunk, parse_hunks
-from ci_agent.store import MemoryStore, evidence_candidates, evidence_filename
-from ci_agent.tools import code_tools
-from ci_agent.tools.code_tools import (
+from e2e_agent.github.client import ChangedFile, Hunk, parse_hunks
+from e2e_agent.store import MemoryStore, evidence_candidates, evidence_filename
+from e2e_agent.tools import code_tools
+from e2e_agent.tools.code_tools import (
     UNTRUSTED_CLOSE, UNTRUSTED_OPEN, WINDOW_CAP, CodeTools,
 )
 

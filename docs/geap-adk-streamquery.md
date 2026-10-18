@@ -71,7 +71,7 @@ or Registry.
 
 ```bash
 task deploy
-task publish:list
+task publish   # lists apps when GE_APP is unset
 task publish GE_APP=projects/YOUR_PROJECT/locations/global/collections/default_collection/engines/APP_ID
 ```
 
@@ -94,7 +94,7 @@ then `agents-cli publish … --registration-type a2a --agent-card-url …`.
 Keep the AdkApp engine if we still want the console. Do not bind
 `A2aAgent` as this repo's Agent Runtime `entrypoint_object`.
 
-`src/ci_agent/agent/a2a_app.py` remains as a constructible wrapper and
+`src/e2e_agent/agent/a2a_app.py` remains as a constructible wrapper and
 tests only.
 
 ## 6. Why Cloud Run A2A is not “ADK prefers Cloud Run”

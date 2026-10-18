@@ -1,4 +1,4 @@
-"""Deploy the ci_agent graph to Agent Runtime (display_name: 'e2e-agent').
+"""Deploy the e2e_agent graph to Agent Runtime (display_name: 'e2e-agent').
 
 Deployment is idempotent: if an agent with display_name 'e2e-agent' already exists
 (or if ENGINE_ID / DC_ENGINE_ID is explicitly provided), it updates the existing engine
@@ -19,7 +19,7 @@ from typing import Optional
 import agentplatform
 from agentplatform.frameworks import AdkApp
 
-from ci_agent.agent.agent import app
+from e2e_agent.agent.agent import app
 
 
 def _required(name: str) -> str:
@@ -63,7 +63,7 @@ config = {
         "revision": REVISION,
         "dir": "src",
     },
-    "entrypoint_module": "ci_agent.agent.engine_entrypoint",
+    "entrypoint_module": "e2e_agent.agent.engine_entrypoint",
     "entrypoint_object": "agent_engine",
     "requirements_file": "requirements.txt",
     "class_methods": class_methods,
@@ -71,9 +71,9 @@ config = {
     "display_name": DISPLAY_NAME,
     "identity_type": agentplatform.types.IdentityType.AGENT_IDENTITY,
     "env_vars": {
-        "CI_AGENT_REPO": "agent-substrate/substrate",
-        "CI_AGENT_MODEL": "gemini-3.7-flash",
-        "CI_AGENT_LOCATION": "global",
+        "E2E_AGENT_REPO": "agent-substrate/substrate",
+        "E2E_AGENT_MODEL": "gemini-3.7-flash",
+        "E2E_AGENT_LOCATION": "global",
         "GOOGLE_CLOUD_LOCATION": "global",
         # Prompt and response bodies go to Cloud Storage. The log and the
         # trace keep a gs:// reference (gen_ai.input.messages_ref and
@@ -90,19 +90,19 @@ config = {
         "OTEL_INSTRUMENTATION_GENAI_UPLOAD_BASE_PATH": (
             f"gs://{os.environ.get('COMPLETIONS_BUCKET', PROJECT_ID + '-e2e-agent-completions')}/completions"
         ),
-        "CI_AGENT_MAX_TURNS": "3",
+        "E2E_AGENT_MAX_TURNS": "3",
         # Caps total Gemini calls across the whole invocation (all nodes).
         "ADK_MAX_LLM_CALLS": "60",
         # Pinned, not left to the code default: a bound whose production value
         # is whatever src/ happens to default to is not a number anyone chose.
         # Client poll deadline AND job_timeout_ms for every warehouse MERGE.
-        "CI_AGENT_BQ_TIMEOUT_S": "30",
+        "E2E_AGENT_BQ_TIMEOUT_S": "30",
         # Backoff retries per Gemini call before investigator_loop takes the
         # routed quota_exhausted exit.
-        "CI_AGENT_MODEL_RETRY_ATTEMPTS": "6",
+        "E2E_AGENT_MODEL_RETRY_ATTEMPTS": "6",
         "BQ_DATASET": "ci_agent_eval",
         "BQ_LOCATION": "us-central1",
-        "CI_AGENT_BQ_WRITE": "1",
+        "E2E_AGENT_BQ_WRITE": "1",
         "GITHUB_APP_ID": _required("GITHUB_APP_ID"),
         "GITHUB_APP_INSTALLATION_ID": _required("GITHUB_APP_INSTALLATION_ID"),
         "GITHUB_APP_PRIVATE_KEY_SECRET": os.environ.get(

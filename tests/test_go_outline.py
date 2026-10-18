@@ -1,5 +1,5 @@
-from ci_agent.code.go_outline import go_subtest_key, outline_go_source, outline_unparsed
-from ci_agent.tools.code_tools import resolve_symbol, symbol_containing
+from e2e_agent.code.go_outline import go_subtest_key, outline_go_source, outline_unparsed
+from e2e_agent.tools.code_tools import resolve_symbol, symbol_containing
 
 SRC = b'''package proxy
 

@@ -55,7 +55,7 @@ def _secret_manager_token(name: str) -> str:
         project = os.environ.get("GOOGLE_CLOUD_PROJECT")
         if not project:
             raise RuntimeError(
-                f"CI_AGENT_GITHUB_TOKEN_SECRET={name!r} is a bare secret id but "
+                f"E2E_AGENT_GITHUB_TOKEN_SECRET={name!r} is a bare secret id but "
                 "GOOGLE_CLOUD_PROJECT is unset; use a full resource name")
         name = f"projects/{project}/secrets/{name}/versions/latest"
     client = secretmanager.SecretManagerServiceClient()
@@ -134,11 +134,11 @@ def _token() -> str:
             return os.environ[var]
     if os.environ.get("GITHUB_APP_ID") and os.environ.get("GITHUB_APP_INSTALLATION_ID"):
         return _github_app_token()
-    if secret := os.environ.get("CI_AGENT_GITHUB_TOKEN_SECRET"):
+    if secret := os.environ.get("E2E_AGENT_GITHUB_TOKEN_SECRET"):
         return _secret_manager_token(secret)
     raise RuntimeError(
         "no GitHub token: set GITHUB_TOKEN, GITHUB_APP_ID+"
-        "GITHUB_APP_INSTALLATION_ID, or point CI_AGENT_GITHUB_TOKEN_SECRET "
+        "GITHUB_APP_INSTALLATION_ID, or point E2E_AGENT_GITHUB_TOKEN_SECRET "
         "at a Secret Manager secret")
 
 
@@ -183,7 +183,7 @@ class GitHub:
             headers={
                 "Authorization": f"Bearer {self._token}",
                 "X-GitHub-Api-Version": "2022-11-28",
-                "User-Agent": "ci-agent/0.1",
+                "User-Agent": "e2e-agent/0.1",
             },
         )
 

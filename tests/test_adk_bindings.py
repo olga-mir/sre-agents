@@ -1,7 +1,7 @@
 import pytest
 
-from ci_agent.tools.adk_tools import _run_context
-from ci_agent.tools.artifact_store import ArtifactStore
+from e2e_agent.tools.adk_tools import _run_context
+from e2e_agent.tools.artifact_store import ArtifactStore
 
 
 class FakePart:

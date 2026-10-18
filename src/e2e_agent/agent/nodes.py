@@ -38,14 +38,14 @@ from .state import (
     merge_summary,
 )
 
-MODEL = os.environ.get("CI_AGENT_MODEL", "gemini-3.7-flash")
-MODEL_LOCATION = os.environ.get("CI_AGENT_LOCATION") or os.environ.get("GOOGLE_CLOUD_LOCATION") or "global"
-MAX_TURNS = int(os.environ.get("CI_AGENT_MAX_TURNS", "3"))
+MODEL = os.environ.get("E2E_AGENT_MODEL", "gemini-3.7-flash")
+MODEL_LOCATION = os.environ.get("E2E_AGENT_LOCATION") or os.environ.get("GOOGLE_CLOUD_LOCATION") or "global"
+MAX_TURNS = int(os.environ.get("E2E_AGENT_MAX_TURNS", "3"))
 # Gemini's Dynamic Shared Quota pool returns 429s under normal contention, not
 # just abuse. Without retry_options the genai client retries zero times
 # (google/genai/_api_client.py: retry_args(None) -> stop_after_attempt(1)), so
 # every transient 429/500/503 would otherwise crash the graph outright.
-MODEL_RETRY_ATTEMPTS = int(os.environ.get("CI_AGENT_MODEL_RETRY_ATTEMPTS", "6"))
+MODEL_RETRY_ATTEMPTS = int(os.environ.get("E2E_AGENT_MODEL_RETRY_ATTEMPTS", "6"))
 
 model_adapter = Gemini(
     model=MODEL,

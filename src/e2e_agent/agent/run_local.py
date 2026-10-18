@@ -17,7 +17,7 @@ from .agent import app
 from .nodes import render_report
 from .state import InvestigationSummary, TriggerEvent
 
-APP_NAME = "ci_agent"
+APP_NAME = "e2e_agent"
 USER_ID = "local"
 _FINISH_WORDS = frozenset({"no", "n", "finish", "done", "stop"})
 

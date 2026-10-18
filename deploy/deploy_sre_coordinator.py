@@ -1,6 +1,7 @@
 """Deploy the sre_coordinator agent to Agent Runtime (display_name: 'sre-coordinator').
 
-Local source bundle. Deployment is idempotent: if an agent with display_name
+Local source bundle, rather than the Developer Connect wiring deploy_agent.py
+uses for e2e-agent. Deployment is idempotent: if an agent with display_name
 'sre-coordinator' already exists (or ENGINE_ID is set), it updates that engine
 in place.
 
@@ -31,16 +32,21 @@ ENGINE_ID = os.environ.get("ENGINE_ID") or os.environ.get("SRE_COORDINATOR_ENGIN
 client = agentplatform.Client(project=PROJECT_ID, location=AGENT_LOCATION)
 
 # Rebuilding AdkApp here (rather than importing a prebuilt one, as
-# ci_agent.agent.agent does for e2e-agent) because sre_coordinator exposes a
+# e2e_agent.agent.agent does for e2e-agent) because sre_coordinator exposes a
 # plain Agent, not an App - AdkApp(agent=...) wraps it the same way.
 adk_app = AdkApp(agent=root_agent)
 
 config = {
     "staging_bucket": STAGING_BUCKET,
-    # Pinned to the versions that cloudpickle this AdkApp and unpickle it in
-    # the container. otel-gcp pulls in opentelemetry-instrumentation-google-genai.
+    # Pinned to what's actually installed, not copied from src/requirements.txt
+    # (that's for e2e_agent's Developer-Connect build). cloudpickle and pydantic
+    # matter here: this local-bundle path cloudpickles the AdkApp object itself
+    # for upload, so a version mismatch between what pickled it and what
+    # unpickles it in the container is a real failure mode.
+    # otel-gcp, not mcp: sre_coordinator uses no MCP toolset, and otel-gcp is
+    # what pulls in opentelemetry-instrumentation-google-genai.
     "requirements": [
-        "google-adk[a2a,otel-gcp]==2.8.0",
+        "google-adk[a2a,otel-gcp]==2.11.0",
         "google-cloud-aiplatform[agent_engines]==2.2.0",
         "pydantic==2.13.5",
         "cloudpickle==3.1.2",
@@ -53,12 +59,30 @@ config = {
         # GOOGLE_CLOUD_PROJECT is reserved - Agent Runtime injects it itself
         # and a 400 FAILED_PRECONDITION rejects the deploy if it's set here.
         "AGENT_LOCATION": AGENT_LOCATION,
-        "CI_AGENT_MODEL": os.environ.get("CI_AGENT_MODEL", "gemini-3.7-flash"),
-        "E2E_AGENT_ENGINE": os.environ.get("E2E_AGENT_ENGINE", "").strip() or sys.exit("set E2E_AGENT_ENGINE"),
-        "ENV_INTELLIGENCE_AGENT": os.environ.get("ENV_INTELLIGENCE_AGENT", "").strip() or sys.exit("set ENV_INTELLIGENCE_AGENT"),
+        "E2E_AGENT_MODEL": os.environ.get("E2E_AGENT_MODEL", "gemini-3.7-flash"),
+        # Unset means the coordinator resolves display name "e2e-agent".
+        # Set E2E_AGENT_ENGINE only to pin a specific engine.
+        **(
+            {"E2E_AGENT_ENGINE": os.environ["E2E_AGENT_ENGINE"]}
+            if os.environ.get("E2E_AGENT_ENGINE", "").strip()
+            else {}
+        ),
+        "ENV_INTELLIGENCE_AGENT": os.environ.get("ENV_INTELLIGENCE_AGENT", "").strip()
+        or sys.exit("set ENV_INTELLIGENCE_AGENT"),
+        # The us data agent is served only at
+        # geminidataanalytics.us.rep.googleapis.com (discovery endpoint for
+        # location "us"). With a client cert present, ADK 2.11 instead dials
+        # geminidataanalytics.us.rep.mtls.googleapis.com, which has no DNS
+        # record. That host also does not request a client cert, so a
+        # cert-bound Agent Identity token would be rejected there. false
+        # selects the plain host and asks google-auth for an unbound token.
+        "GOOGLE_API_USE_CLIENT_CERTIFICATE": "false",
+        "GOOGLE_API_USE_MTLS_ENDPOINT": "never",
         "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
         "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
-        # Message content stays on the span. e2e-agent uploads bodies to Cloud Storage.
+        # SPAN_ONLY, not the upload hook e2e-agent uses: that mode offloads
+        # prompt/response bodies to Cloud Storage. SPAN_ONLY puts content
+        # straight on the span instead.
         "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
     },
 }
@@ -81,7 +105,8 @@ def _print_identity(remote_agent) -> None:
         print(f"Effective identity: {identity}")
         print(f"IAM member: {member}")
         print("Grant this principal roles/aiplatform.user (for the e2e-agent "
-              "stream_query call) and the BigQuery data agent role on first deploy.")
+              "stream_query call), roles/geminidataanalytics.dataAgentUser, and "
+              "roles/cloudaicompanion.user on first deploy.")
 
 
 target_engine_id = find_existing_engine()

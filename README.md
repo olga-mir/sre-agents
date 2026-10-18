@@ -16,7 +16,7 @@ system. For a comprehensive, maintained set of ADK patterns and recipes, see
 ## Layout
 
 ```
-src/ci_agent/
+src/e2e_agent/
   agent/          # the ADK graph: nodes, state, prompts, local runner,
                   # engine_entrypoint.py (AdkApp), mcp_entrypoint.py,
                   # a2a_app.py (not the deploy entrypoint)
@@ -27,7 +27,7 @@ src/ci_agent/
   cli.py          # local harness
   analytics/      # BigQuery row mappers
 agents/
-  ci_agent/       # ADK loader entry for e2e-agent
+  e2e_agent/       # ADK loader entry for e2e-agent
   sre_coordinator/
 deploy/
   deploy_agent.py            # idempotent Developer Connect deploy of e2e-agent
@@ -49,8 +49,8 @@ task setup                       # venv, deps, .env, grammar check
 task test                        # unit tests, no network and no model
 
 task investigate                 # the whole graph on a failed run, then pauses
-task deep-dive FEEDBACK="..."
-task debug:triage                # the deterministic path, with token accounting
+task investigate FEEDBACK="..."  # resume a pause
+task debug VIEW=triage          # the deterministic path, with token accounting
 ```
 
 `RUN=<id>` picks a GitHub Actions run. `REPO=` picks the repo. The default repo is `agent-substrate/substrate`.
@@ -60,10 +60,10 @@ task debug:triage                # the deterministic path, with token accounting
 Each `task investigate` writes `runs/<run_id>/`:
 
 ```bash
-task debug:report      # the report a human would have been posted
-task debug:trace       # every tool call the agent made, in order
-task debug:evidence    # the bytes it actually read, listed by path
-task web               # the ADK dev UI
+task debug VIEW=report    # the report a human would have been posted
+task debug VIEW=trace     # every tool call the agent made, in order
+task debug VIEW=evidence  # the bytes it actually read, listed by path
+task web                  # the ADK dev UI
 ```
 
 ### Eval warehouse (BigQuery)
@@ -71,10 +71,9 @@ task web               # the ADK dev UI
 Structured inputs, outputs, and outcomes live in `ci_agent_eval`. The graph writes findings and the files it opened through a deterministic `record_outcome` node. Details: [`analytics/bq/README.md`](analytics/bq/README.md).
 
 ```bash
-task bq:provision
-task bq:iam MEMBER=user:you@example.com
-task bq:seed
-task bq:seed-investigations
+task bq:iam MEMBER=user:you@example.com   # creates the dataset if it is missing
+task bq:seed                              # latest successful non-scan Actions runs
+task bq:seed WHAT=investigations          # local runs/<id>/ dumps
 task bq:query Q=ci_health
 ```
 
@@ -85,18 +84,18 @@ task bq:query Q=ci_health
 `task deploy` reads `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, and `GITHUB_APP_PRIVATE_KEY_SECRET` from the environment and copies them into Agent Runtime `env_vars`. Locally, `task setup` writes a `GITHUB_TOKEN` into `.env`. The deployed agent has no `gh` CLI.
 
 ```bash
-task deploy
-task invoke              # RUN=<id> REPO=<repo>
+task deploy                            # AGENT=sre-coordinator for that agent
+task invoke                            # RUN=<id> REPO=<repo>
 task deployments
-task debug:logs
+task debug VIEW=logs
 ```
 
-`task deploy:sre-coordinator` updates sre-coordinator from a local source bundle. Set `E2E_AGENT_ENGINE` and `ENV_INTELLIGENCE_AGENT` first (see `.env.example`).
+`task deploy AGENT=sre-coordinator` updates sre-coordinator from a local source bundle. Set `ENV_INTELLIGENCE_AGENT` first (see `.env.example`). `E2E_AGENT_ENGINE` is optional: unset, the coordinator looks up the Agent Runtime named `e2e-agent`.
 
 ### Local MCP server
 
 ```bash
-claude mcp add ci-agent -- .venv/bin/python -m ci_agent.agent.mcp_entrypoint
+claude mcp add e2e-agent -- .venv/bin/python -m e2e_agent.agent.mcp_entrypoint
 ```
 
 The tool takes `TriggerEvent` JSON, for example `{"trigger_source": "TEST_OPERATOR", "repo": "owner/repo", "run_id": "123"}`.
@@ -106,7 +105,7 @@ The tool takes `TriggerEvent` JSON, for example `{"trigger_source": "TEST_OPERAT
 Gemini Enterprise invokes e2e-agent with `:streamQuery`.
 
 ```bash
-task publish:list
+task publish   # list Gemini Enterprise apps
 task publish GE_APP=projects/YOUR_PROJECT/locations/global/collections/default_collection/engines/APP_ID
 ```
 

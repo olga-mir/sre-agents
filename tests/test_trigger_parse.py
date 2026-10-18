@@ -1,6 +1,6 @@
 """TriggerEvent parsing for Gemini Enterprise / A2A chat text."""
 
-from ci_agent.agent.trigger_parse import parse_trigger_text
+from e2e_agent.agent.trigger_parse import parse_trigger_text
 
 
 def test_parses_trigger_event_json():
@@ -28,14 +28,14 @@ def test_parses_prose_with_repo_and_run():
 
 
 def test_uses_default_repo_when_only_run_id_is_present(monkeypatch):
-    monkeypatch.delenv("CI_AGENT_REPO", raising=False)
+    monkeypatch.delenv("E2E_AGENT_REPO", raising=False)
     event = parse_trigger_text("run 33259998849", default_repo="o/r")
     assert event is not None
     assert event.repo == "o/r" and event.run_id == "33259998849"
 
 
-def test_uses_ci_agent_repo_env(monkeypatch):
-    monkeypatch.setenv("CI_AGENT_REPO", "env/repo")
+def test_uses_e2e_agent_repo_env(monkeypatch):
+    monkeypatch.setenv("E2E_AGENT_REPO", "env/repo")
     event = parse_trigger_text("run 33259998849")
     assert event is not None
     assert event.repo == "env/repo"

@@ -9,7 +9,7 @@ What are source code files appear frequently in investigations?
 Are there any novel failures detected in the past 2 days?
 
 
-# e2e-agent/-poc
+# e2e-agent
 
 ```
 {"trigger_source": "TEST_OPERATOR", "repo": "agent-substrate/substrate", "run_id": "32521686987"}

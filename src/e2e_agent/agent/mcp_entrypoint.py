@@ -1,4 +1,4 @@
-"""Expose the ci_agent Workflow as a local MCP server (stdio transport).
+"""Expose the e2e_agent Workflow as a local MCP server (stdio transport).
 
 This is the MCP counterpart of engine_entrypoint.py: that module wraps the
 graph as an Agent Runtime A2A service; this one wraps `root_agent` for an
@@ -18,7 +18,7 @@ from pathlib import Path
 from ..env import load_dotenv
 
 # Must run before `.agent` (-> `.nodes`) is imported: nodes.py reads
-# CI_AGENT_MODEL/CI_AGENT_MAX_TURNS/etc. from os.environ at import time, and
+# E2E_AGENT_MODEL/E2E_AGENT_MAX_TURNS/etc. from os.environ at import time, and
 # unlike `task investigate`, an MCP host launches this process directly - no
 # Taskfile dotenv loading happens on its behalf. Resolved from this file's
 # location, not cwd: an MCP host's working directory is not guaranteed to be
@@ -57,7 +57,7 @@ runner = Runner(
 
 server = to_mcp_server(
     root_agent,
-    name="ci_agent",
+    name="e2e_agent",
     instructions="Investigates a failed CI run and returns a verdict with evidence.",
     runner=runner,
 )

@@ -1,4 +1,4 @@
-from ci_agent.otel_auth import google_telemetry_endpoint
+from e2e_agent.otel_auth import google_telemetry_endpoint
 
 
 def test_google_telemetry_hosts_need_credentials():

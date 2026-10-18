@@ -20,19 +20,19 @@ from .investigation_rows import (
     path_hop_rows,
 )
 
-log = logging.getLogger("ci_agent.analytics")
+log = logging.getLogger("e2e_agent.analytics")
 
 _TRUTHY = {"1", "true", "yes", "on"}
 # A healthy MERGE on these tables finishes in a few seconds. Without a
 # timeout, job.result() waits out BigQuery's own ~12 minute internal retry
 # and the playground request dies first.
-_BQ_RESULT_TIMEOUT_S = float(os.environ.get("CI_AGENT_BQ_TIMEOUT_S", "30"))
+_BQ_RESULT_TIMEOUT_S = float(os.environ.get("E2E_AGENT_BQ_TIMEOUT_S", "30"))
 # Give-up-and-cancel is best effort. It must not become the new place we wait.
 _BQ_CANCEL_TIMEOUT_S = 5.0
 
 
 def writes_enabled() -> bool:
-    flag = os.environ.get("CI_AGENT_BQ_WRITE", "1").strip().lower()
+    flag = os.environ.get("E2E_AGENT_BQ_WRITE", "1").strip().lower()
     if flag not in _TRUTHY:
         return False
     return bool(os.environ.get("GOOGLE_CLOUD_PROJECT"))

@@ -38,7 +38,7 @@ not quote a Spot price, and preemption drops the replica.
 
 ## Gemma uses a different adapter than Gemini
 
-`src/ci_agent/agent/nodes.py` builds a `Gemini` adapter plus `BuiltInPlanner`
+`src/e2e_agent/agent/nodes.py` builds a `Gemini` adapter plus `BuiltInPlanner`
 (`ThinkingConfig`). A Model Garden Gemma 4 endpoint is a vLLM server. ADK's
 Gemma page routes that through `LiteLlm` and an OpenAI-compatible
 `/chat/completions` URL, with thinking turned on per request via

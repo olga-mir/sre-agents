@@ -1,12 +1,12 @@
 # AGENTS.md
 
 Project invariants for coding assistants. Read this before changing anything
-under `src/ci_agent/` or `deploy/`. Read `docs/code-review-guide.md`
+under `src/e2e_agent/` or `deploy/`. Read `docs/code-review-guide.md`
 before reviewing a diff.
 
 ## What this is
 
-An ADK `Workflow` graph (`src/ci_agent/agent/agent.py`) that investigates a
+An ADK `Workflow` graph (`src/e2e_agent/agent/agent.py`) that investigates a
 failed GitHub Actions run: it pins the run to frozen shas, lets Gemini drive
 code-navigation tools over the GitHub API, verifies the resulting claim
 deterministically, writes the outcome to BigQuery, and pauses for a human.
@@ -23,8 +23,8 @@ task setup          # venv + deps + go grammar check
 task test           # pytest. Offline: no network, no model, no GCP
 task investigate RUN=<id>   # whole graph locally against a real failed run
 task deploy         # idempotent update of e2e-agent on Agent Runtime
-task debug:trace RUN=<id>   # tool calls the agent actually made
-task --list         # everything else (bq:*, debug:*, publish:*)
+task debug VIEW=trace RUN=<id>   # tool calls the agent actually made
+task --list         # everything else (bq:*, debug, publish)
 ```
 
 `task test` must pass before any commit. It takes ~3s; there is no excuse.
@@ -101,13 +101,13 @@ These are not style preferences.
 
 | Path | What |
 |---|---|
-| `src/ci_agent/agent/agent.py` | the graph: nodes and edges |
-| `src/ci_agent/agent/nodes.py` | node bodies, budgets, the verifier |
-| `src/ci_agent/agent/prompts.py` | investigator and deep-dive instructions |
-| `src/ci_agent/tools/` | code and log tools exposed to the model |
-| `src/ci_agent/github/client.py` | the only path to source bytes |
-| `src/ci_agent/analytics/` | BigQuery row shapes and writes |
-| `src/ci_agent/run_context.py` | pinning a run to frozen shas |
+| `src/e2e_agent/agent/agent.py` | the graph: nodes and edges |
+| `src/e2e_agent/agent/nodes.py` | node bodies, budgets, the verifier |
+| `src/e2e_agent/agent/prompts.py` | investigator and deep-dive instructions |
+| `src/e2e_agent/tools/` | code and log tools exposed to the model |
+| `src/e2e_agent/github/client.py` | the only path to source bytes |
+| `src/e2e_agent/analytics/` | BigQuery row shapes and writes |
+| `src/e2e_agent/run_context.py` | pinning a run to frozen shas |
 | `deploy/deploy_agent.py` | Agent Runtime config, including `env_vars` |
 | `tests/test_bounds.py` | mechanical bound checks over `src/` and `deploy/` |
 | `docs/code-review-guide.md` | the review guide |

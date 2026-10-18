@@ -1,4 +1,4 @@
-from ci_agent.code.failure_address import (
+from e2e_agent.code.failure_address import (
     package_to_path, parse_go_failures, resolve_path, strip_timestamps,
 )
 

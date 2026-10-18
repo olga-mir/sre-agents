@@ -19,21 +19,21 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "ci_agent"
+SRC = ROOT / "src" / "e2e_agent"
 DEPLOY = ROOT / "deploy"
 
 
 # --- deliberate exceptions, each with the reason it is one -------------------
 
 ACCEPTED: dict[str, str] = {
-    "while_true:src/ci_agent/github/client.py:_paged":
+    "while_true:src/e2e_agent/github/client.py:_paged":
         "GitHub pagination. Each page is one bounded HTTP call, but the page "
         "count is not capped. Capping it means truncating results, which is a "
         "product decision, not a bound.",
-    "uncancellable_thread:src/ci_agent/agent/nodes.py:record_outcome":
+    "uncancellable_thread:src/e2e_agent/agent/nodes.py:record_outcome":
         "The BigQuery client is sync. Workflow cancellation does not reach this "
         "thread, so every wait inside it carries its own deadline "
-        "(CI_AGENT_BQ_TIMEOUT_S) instead of relying on an outer timeout.",
+        "(E2E_AGENT_BQ_TIMEOUT_S) instead of relying on an outer timeout.",
 }
 
 # Budget keys that exist in state. A key here must appear in a comparison
@@ -57,10 +57,10 @@ UNCOMPARED_BUDGET_KEYS: dict[str, str] = {
 # code default happens to be is not a bound anyone chose, so each of these is
 # pinned explicitly in the deployed config.
 BOUND_KNOBS = {
-    "CI_AGENT_MAX_TURNS",
+    "E2E_AGENT_MAX_TURNS",
     "ADK_MAX_LLM_CALLS",
-    "CI_AGENT_BQ_TIMEOUT_S",
-    "CI_AGENT_MODEL_RETRY_ATTEMPTS",
+    "E2E_AGENT_BQ_TIMEOUT_S",
+    "E2E_AGENT_MODEL_RETRY_ATTEMPTS",
 }
 
 

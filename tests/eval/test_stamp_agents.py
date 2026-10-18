@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from ci_agent.agent.nodes import deep_dive_agent, investigator_agent
+from e2e_agent.agent.nodes import deep_dive_agent, investigator_agent
 from stamp_agents import agents_map, stamp_document, tool_names
 
 

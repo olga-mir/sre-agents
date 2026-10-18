@@ -69,7 +69,7 @@ def parse_trigger_text(
         if bare:
             run_id = bare.group("run_id")
 
-    repo = repo or default_repo or os.environ.get("CI_AGENT_REPO")
+    repo = repo or default_repo or os.environ.get("E2E_AGENT_REPO")
     if repo and run_id:
         return TriggerEvent(repo=repo, run_id=run_id)
     return None

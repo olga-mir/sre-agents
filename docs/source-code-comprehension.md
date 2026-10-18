@@ -1,6 +1,6 @@
 # Source-Code Comprehension for the CI / E2E Investigation Agent on GEAP
 
-**Status:** active — implemented in `src/ci_agent/`, validated against real CI
+**Status:** active — implemented in `src/e2e_agent/`, validated against real CI
 failures in [`agent-substrate/substrate`](https://github.com/agent-substrate/substrate).
 See §10 for what implementation changed about the design, and
 [`graph-implementation-notes.md`](./graph-implementation-notes.md) for what it
