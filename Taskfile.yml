@@ -49,6 +49,11 @@ tasks:
 
   # --- Agent Runtime ---------------------------------------------------------
 
+  provision:
+    desc: Enable APIs and create buckets, the GitHub App secret, and the eval dataset
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} LOCATION={{.REGION}} BQ_LOCATION={{.BQ_LOCATION}} DATASET={{.BQ_DATASET}} bash deploy/provision.sh
+
   deploy:sdk:
     internal: true
     desc: Install the local Agent Platform SDK (devconnect extra) if it is missing
@@ -198,15 +203,7 @@ tasks:
     internal: true
     desc: Enable the BigQuery API and create the eval dataset, tables, and views
     cmds:
-      - CLOUDSDK_METRICS_REQUEST_ATTRIBUTION="agent-skills/1.0 (skill:bigquery-basics)" gcloud services enable bigquery.googleapis.com --project {{.GCP}} --quiet
-      - |
-        set -euo pipefail
-        CLOUDSDK_METRICS_REQUEST_ATTRIBUTION="agent-skills/1.0 (skill:bigquery-basics)" \
-          bq --location={{.BQ_LOCATION}} --project_id={{.GCP}} mk --dataset \
-            --description "CI-agent eval: GitHub inputs, agent outputs, outcomes" \
-            {{.GCP}}:{{.BQ_DATASET}} 2>/dev/null || true
-        sed "s/PROJECT_ID/{{.GCP}}/g; s/DATASET_ID/{{.BQ_DATASET}}/g" analytics/bq/ddl.sql \
-          | bq query --use_legacy_sql=false --project_id={{.GCP}} --location={{.BQ_LOCATION}} --quiet
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} BQ_LOCATION={{.BQ_LOCATION}} DATASET={{.BQ_DATASET}} bash deploy/provision.sh bigquery
 
   bq:seed:
     desc: 'MERGE seed into BigQuery. WHAT=github (default) or investigations. CONCLUSION= LIMIT= WORKFLOW= filter github'

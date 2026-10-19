@@ -6,8 +6,7 @@ uses for e2e-agent. Deployment is idempotent: if an agent with display_name
 in place.
 
 Needs a GCS staging bucket for the local source upload (STAGING_BUCKET env,
-default gs://<project>-agent-staging) - create it first if it does not exist:
-  gcloud storage buckets create gs://<project>-agent-staging --location=us-central1
+default gs://<project>-agent-staging). deploy/provision.sh creates it.
 """
 
 import os
@@ -104,9 +103,12 @@ def _print_identity(remote_agent) -> None:
         member = identity if str(identity).startswith("principal://") else f"principal://{identity}"
         print(f"Effective identity: {identity}")
         print(f"IAM member: {member}")
-        print("Grant this principal roles/aiplatform.user (for the e2e-agent "
-              "stream_query call), roles/geminidataanalytics.dataAgentUser, and "
-              "roles/cloudaicompanion.user on first deploy.")
+        print(
+            "Run deploy/grant_coordinator_iam.sh once. It grants "
+            "roles/aiplatform.user (stream_query on e2e-agent), "
+            "roles/geminidataanalytics.dataAgentUser, "
+            "roles/cloudaicompanion.user, and BigQuery read on ci_agent_eval."
+        )
 
 
 target_engine_id = find_existing_engine()

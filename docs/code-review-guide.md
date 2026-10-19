@@ -187,9 +187,11 @@ These behave like correctness properties here, because they end the run.
   deployed behave differently - say which one the tests exercise.
 - `os.environ.get(...)` at module scope freezes the value at import. Fine for
   deployment; wrong for anything a test or a runtime caller wants to change.
-- New Google API calls need the IAM grant in `grant_agent_identity_iam.sh` in
-  the same change, and the role has to match the error: `401 Invalid
-  Credentials` is a token problem, `403` is a binding problem. Adding a binding
+- New Google API calls need the IAM grant in the same change:
+  `deploy/grant_agent_identity_iam.sh` for e2e-agent,
+  `deploy/grant_coordinator_iam.sh` for sre-coordinator. The role has to
+  match the error: `401 Invalid Credentials` is a token problem, `403` is a
+  binding problem. Adding a binding
   for a 401 does not fix it.
 - An integration that is enabled, failing, and retrying in the background costs
   on every model call and delivers nothing. Turn it off until it works.

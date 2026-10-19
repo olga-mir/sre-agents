@@ -90,8 +90,10 @@ These are not style preferences.
     whose production value is whatever `src/` happens to default to is not a
     number anyone chose. `env_vars` is the real production configuration.
 
-12. **A new Google API call needs its IAM grant in the same change**, in
-    `deploy/grant_agent_identity_iam.sh`. Match the role to the API.
+12. **A new Google API call needs its IAM grant in the same change.**
+    e2e-agent grants live in `deploy/grant_agent_identity_iam.sh`.
+    sre-coordinator grants live in `deploy/grant_coordinator_iam.sh`.
+    Match the role to the API.
 
 13. **Tests are offline.** No network, no model, no GCP credentials. Fakes must
     be as strict as the real client - a fake that accepts any keyword proves
@@ -109,6 +111,7 @@ These are not style preferences.
 | `src/e2e_agent/analytics/` | BigQuery row shapes and writes |
 | `src/e2e_agent/run_context.py` | pinning a run to frozen shas |
 | `deploy/deploy_agent.py` | Agent Runtime config, including `env_vars` |
+| `deploy/provision.sh` | bash + gcloud project setup: APIs, buckets, secret, dataset |
 | `tests/test_bounds.py` | mechanical bound checks over `src/` and `deploy/` |
 | `docs/code-review-guide.md` | the review guide |
 

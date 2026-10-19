@@ -5,11 +5,10 @@ Deployment is idempotent: if an agent with display_name 'e2e-agent' already exis
 in place rather than creating a new reasoningEngine.
 
 The engine runs as an Agent Identity. After the first deploy that sets
-identity_type, grant the printed principal:
-  - roles/secretmanager.secretAccessor on the GitHub App private-key secret
-  - roles/bigquery.dataEditor on ci_agent_eval
-  - roles/bigquery.jobUser
-Prefix effective_identity with principal:// when passing it to gcloud or bq.
+identity_type, run deploy/grant_agent_identity_iam.sh. It grants the
+printed principal secretAccessor on the GitHub App private-key secret,
+roles/bigquery.dataEditor on ci_agent_eval, and roles/bigquery.jobUser.
+Project setup before this script is deploy/provision.sh.
 """
 
 import os

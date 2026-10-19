@@ -16,7 +16,7 @@ Evidence **bytes** stay in ADK artifacts / `runs/<id>/evidence/`. This warehouse
 
 **Writes (this agent):** a deterministic `record_outcome` FunctionNode after `verifier_linter` and again after `targeted_deep_dive`. It MERGEs `investigations` + `findings` keyed on `(investigation_id, failure_id)` (`session:{adk_session_id}`), and replaces `path_hops` for that investigation from the session's code-tool calls. The SQL is fixed and parameterized — the model never sees BigQuery. A write failure is logged and swallowed so the investigation still reaches the human. The deep-dive write replaces the hop path, so files opened only after the human replies are included.
 
-Disable with `E2E_AGENT_BQ_WRITE=0`. The Agent Runtime SA (and your user, for local `task investigate`) need `roles/bigquery.dataEditor` on this dataset: `task bq:iam MEMBER=user:you@example.com`.
+Disable with `E2E_AGENT_BQ_WRITE=0`. The e2e-agent Agent Identity gets `roles/bigquery.dataEditor` from `deploy/grant_agent_identity_iam.sh`. Your user, for local `task investigate`, gets it from `task bq:iam MEMBER=user:you@example.com`.
 
 **Reads:** not on this agent. A separate mechanism will query and parse the warehouse. Do not bind the managed BigQuery MCP (`https://bigquery.googleapis.com/mcp`, Agent Registry global `bigquery.googleapis.com`) to `investigator_loop`.
 
