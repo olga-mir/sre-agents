@@ -1,30 +1,17 @@
 # Deploy
 
-`task deploy` updates the two Agent Runtime engines with `agents-cli`.
-Bash and `gcloud` provision the project resources the CLI does not
-create. Agent Identity grants run after the first deploy of each
-engine, because the principal does not exist before that.
+`task deploy` creates or updates the two Agent Runtime engines with `agents-cli`.
 
-`scripts/` drives the demo (`demo.sh`) and pulls session events.
+Project and infra provisioning need to happen first before agent deployment, but Agent Identity grants run after the first deploy of each engine, because the principal does not exist before that.
 
 ## Fresh project
 
-You need `gcloud`, `bq`, `python3`, `agents-cli`, and a project with a
-billing account. `gcloud auth login` covers the bash scripts. `task
-deploy` and `task invoke` use Application Default Credentials, so also
-run `gcloud auth application-default login`. Owner covers the grants
-below. Otherwise you need to enable APIs, create buckets and secrets,
-deploy Agent Runtime, create a data agent, and set IAM.
-
 ```bash
-# 1. APIs, the completions bucket, the eval dataset, and the GitHub App
-#    secret. If the secret is missing, this exits and tells you how to
-#    rerun with the PEM.
-deploy/provision.sh
+# 1. APIs, the completions bucket, the eval dataset, and the GitHub App secret.
+GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh
 
-# 2. Data agent over ci_agent_eval. Copy the printed resource name
-#    into .env as ENV_INTELLIGENCE_AGENT.
-deploy/data_agent.sh
+# 2. Data agent over ci_agent_eval. Copy the printed resource name into .env as ENV_INTELLIGENCE_AGENT.
+ENV_INTELLIGENCE_AGENT=<from-prev-step> deploy/data_agent.sh
 
 # 3. Deploy the working tree. .env needs GITHUB_APP_ID and
 #    GITHUB_APP_INSTALLATION_ID. The pinned runtime env is
@@ -35,11 +22,10 @@ task deploy AGENT=sre-coordinator
 deploy/grant_coordinator_iam.sh
 
 # 4. Register into an existing Gemini Enterprise app.
-task publish GE_APP=projects/PROJECT/locations/global/collections/default_collection/engines/APP_ID
+task publish GE_APP=projects/$PROJECT/locations/global/collections/default_collection/engines/$APP_ID
 ```
 
-`deploy/provision.sh bigquery` is what `task bq:seed` calls. Re-running
-any of these scripts leaves existing resources in place.
+`deploy/provision.sh bigquery` is what `task bq:seed` calls. Re-running any of these scripts leaves existing resources in place.
 
 ## GitHub credential
 
@@ -47,10 +33,7 @@ any of these scripts leaves existing resources in place.
 |---|---|---|
 | GitHub App you create | Runtime reads of the repo under investigation (`E2E_AGENT_REPO`) | PEM in secret `e2e-agent-github-app-private-key`. `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID` in `.env`. `task deploy` copies those two into Agent Runtime. |
 
-Local `task investigate` uses `GITHUB_TOKEN` from `task setup`. Agent
-Runtime has no `gh` login, so the deployed agent uses the GitHub App.
-`task deploy` moves `.env` out of the tree before `agents-cli` runs, so
-that token is not copied into the runtime.
+Local `task investigate` uses `GITHUB_TOKEN` from `task setup`. Agent Runtime has no `gh` login, so the deployed agent uses the GitHub App. `task deploy` moves `.env` out of the tree before `agents-cli` runs, so that token is not copied into the runtime.
 
 ## What agents-cli deploys
 

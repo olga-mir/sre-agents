@@ -45,13 +45,7 @@ Project setup is bash and gcloud. Script order and IAM details: [`deploy/README.
 
 This must be done manually before running script.
 
-1. **GitHub App for the running agent.** Create one at [github.com/settings/apps](https://github.com/settings/apps) and install it on the repo e2e-agent will read (`E2E_AGENT_REPO`, default `agent-substrate/substrate`). Grant read on Actions, Contents, and Pull requests. Put the App ID and the installation ID in `.env` as `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID`. Generate a private key and upload it:
-
-```bash
-GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh secret
-```
-
-That secret is `e2e-agent-github-app-private-key`. This app is what the deployed agent uses. Local `task investigate` still uses the `GITHUB_TOKEN` that `task setup` writes.
+1. **GitHub App for the running agent.** Create one at [github.com/settings/apps](https://github.com/settings/apps) and install it on the repo e2e-agent will read (`E2E_AGENT_REPO`, default `agent-substrate/substrate`). Grant read on Actions, Contents, and Pull requests. Put the App ID and the installation ID in `.env` as `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID`. Generate a private key. The provision command below uploads it to secret `e2e-agent-github-app-private-key`. This app is what the deployed agent uses. Local `task investigate` still uses the `GITHUB_TOKEN` that `task setup` writes.
 
 2. **Gemini Enterprise app.** Create the app in the console if the project does not have one. `task publish` with no `GE_APP` lists apps. Registration is:
 
@@ -68,7 +62,7 @@ Then:
 ```bash
 gcloud auth login
 gcloud auth application-default login
-deploy/provision.sh
+GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh
 deploy/data_agent.sh            # prints ENV_INTELLIGENCE_AGENT; put it in .env
 task deploy
 deploy/grant_agent_identity_iam.sh

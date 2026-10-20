@@ -226,6 +226,17 @@ def test_deploy_is_agents_cli_without_developer_connect():
     assert not (DEPLOY / "deploy_sre_coordinator.py").exists()
     provision = (DEPLOY / "provision.sh").read_text()
     assert "developerconnect.googleapis.com" not in provision
+    assert "export CLOUDSDK_CORE_DISABLE_PROMPTS=1" in provision
+    assert "\nset -x\n" in provision
+    # Discarding stderr hid gcloud's "enable and retry?" prompt, and gcloud
+    # then blocked on stdin. The PATH check is the one redirect that stays.
+    hidden = [
+        line.strip()
+        for line in provision.splitlines()
+        if ">/dev/null 2>&1" in line and "command -v" not in line
+    ]
+    assert not hidden, hidden
+    assert "SECRET_API_PROPAGATION_DEADLINE_SECONDS=180" in provision
     env = (DEPLOY / "e2e-agent.env").read_text()
     assert "GOOGLE_CLOUD_PROJECT=" not in env
     assert "GITHUB_TOKEN=" not in env
