@@ -1,7 +1,8 @@
 # GEAP invoke path — ADK `:streamQuery`, not A2A on Agent Runtime
 
 **Status:** Shipped as the deploy and Gemini Enterprise registration path.
-`engine_entrypoint.agent_engine` is `AdkApp`. `task publish` uses
+`task deploy` builds a container with `agents-cli`. The process serves
+`AdkApp` on the reasoning-engine routes. `task publish` uses
 `--registration-type adk`.
 
 **Date:** 2026-09-14.
@@ -29,8 +30,9 @@ Gemini Enterprise is a chat app that can invoke a worker. For an AdkApp on
 Agent Runtime, the supported worker mode is **ADK** (`:streamQuery` on the
 engine resource). A2A-GE is for a worker that already has a card URL.
 
-There is **no FastAPI trigger/resume layer** in this repo. Agent Runtime *is*
-the API. Local HITL is `run_local.py`. Slack REST resume is still unwritten.
+The container is a FastAPI process so Agent Engine can proxy `:streamQuery`.
+It is not a second trigger API. Graph entry is still TriggerEvent JSON.
+Local HITL is `run_local.py`. Slack REST resume is still unwritten.
 
 ## 3. What we tried (and what broke)
 
@@ -59,9 +61,11 @@ the API. Local HITL is `run_local.py`. Slack REST resume is still unwritten.
 Stay on the ADK-native path and stop treating A2A as a prerequisite for GE
 or Registry.
 
-1. Deploy `AdkApp(app=app)` with `agent_framework: "google-adk"` and
-   `class_methods` from `AdkApp.register_operations()` (sessions +
-   `stream_query`).
+1. `task deploy` runs `agents-cli deploy`. The image's process is
+   `uvicorn app.fast_api_app:app`, which serves `AdkApp` on
+   `/api/reasoning_engine` and `/api/stream_reasoning_engine`. `agents-cli`
+   records `agent_framework: google-adk` and `class_methods` from
+   `AdkApp.register_operations()` (sessions + `stream_query`).
 2. Treat Agent Registry as the catalog of that engine. `e2e-agent` showing
    up and **not** being A2A is correct.
 3. Register Gemini Enterprise with `--registration-type adk`. GE calls
@@ -75,9 +79,9 @@ task publish   # lists apps when GE_APP is unset
 task publish GE_APP=projects/YOUR_PROJECT/locations/global/collections/default_collection/engines/APP_ID
 ```
 
-Developer Connect builds `@main`. Push before `task deploy`. Publish only
-after the engine is ADK again — ADK registration against a custom/A2A
-revision would point `:streamQuery` at methods that are not there.
+The build is the working tree `agents-cli` uploads. Publish only after the
+engine is ADK again — ADK registration against a custom/A2A revision would
+point `:streamQuery` at methods that are not there.
 
 Graph START still validates `TriggerEvent` JSON. Playground, GE, MCP, and
 `deploy/invoke_agent.py` all send that payload. Chat-to-JSON parsing

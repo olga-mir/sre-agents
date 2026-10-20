@@ -86,9 +86,11 @@ These are not style preferences.
     plain edges, and the distinction travels in the payload (`exit_reason`,
     `audit_passed`), not in a route label.
 
-11. **Bound knobs are pinned in `deploy/deploy_agent.py` `env_vars`.** A bound
-    whose production value is whatever `src/` happens to default to is not a
-    number anyone chose. `env_vars` is the real production configuration.
+11. **Bound knobs are pinned in `deploy/e2e-agent.env`.** A bound whose
+    production value is whatever `src/` happens to default to is not a number
+    anyone chose. `task deploy` passes that file to `agents-cli deploy`. It is
+    the real production configuration. The coordinator's file is
+    `deploy/sre-coordinator.env`.
 
 12. **A new Google API call needs its IAM grant in the same change.**
     e2e-agent grants live in `deploy/grant_agent_identity_iam.sh`.
@@ -110,7 +112,8 @@ These are not style preferences.
 | `src/e2e_agent/github/client.py` | the only path to source bytes |
 | `src/e2e_agent/analytics/` | BigQuery row shapes and writes |
 | `src/e2e_agent/run_context.py` | pinning a run to frozen shas |
-| `deploy/deploy_agent.py` | Agent Runtime config, including `env_vars` |
+| `deploy/e2e-agent.env` | pinned Agent Runtime env for e2e-agent |
+| `deploy/deploy.sh` | `agents-cli deploy` for both engines |
 | `deploy/provision.sh` | bash + gcloud project setup: APIs, buckets, secret, dataset |
 | `tests/test_bounds.py` | mechanical bound checks over `src/` and `deploy/` |
 | `docs/code-review-guide.md` | the review guide |
@@ -120,5 +123,5 @@ These are not style preferences.
 - `task test` passes.
 - Any new blocking call has a deadline, and its library default is in a comment.
 - Any new failure path is observable by a human, not only by a log reader.
-- Any new knob is in `env_vars` or explicitly documented as defaulted.
+- Any new knob is in `deploy/e2e-agent.env` or `deploy/sre-coordinator.env`, or explicitly documented as defaulted.
 - The PR description names what is still unbounded and why.

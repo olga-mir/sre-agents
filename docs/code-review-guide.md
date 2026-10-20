@@ -32,7 +32,7 @@ rg -n 'while True|while not |for attempt in range' src/
 rg -n 'asyncio\.gather|to_thread|Semaphore' src/
 # Config that only exists in a deploy script, never read back by the code
 rg -n 'os\.environ' src/ | sed 's/.*environ[.get]*(\["\x27]\?\([A-Z_]*\).*/\1/' | sort -u
-rg -n '"[A-Z_]+":' deploy/deploy_agent.py
+rg -n '^[A-Z0-9_]+=' deploy/*.env
 ```
 
 Every hit is a question, not a finding. The finding is a hit whose answer is "I
@@ -178,12 +178,15 @@ These behave like correctness properties here, because they end the run.
 
 ## Pass 7 - deployment, identity, and config that lives outside the code
 
-`deploy/deploy_agent.py` `env_vars` is the real production configuration.
+`deploy/e2e-agent.env` is the real production configuration for e2e-agent.
+`deploy/sre-coordinator.env` is the coordinator's. `task deploy` passes them
+to `agents-cli`. `.env` is not: deploy moves it aside so a local
+`GITHUB_TOKEN` is not copied into the runtime.
 
 - Every tuning knob read by `src/` should be set there or documented as
   defaulted. Every key set there should be read by something. Both drifts are
   findings.
-- A default in code and a value in `env_vars` that disagree means local and
+- A default in code and a value in the env file that disagree means local and
   deployed behave differently - say which one the tests exercise.
 - `os.environ.get(...)` at module scope freezes the value at import. Fine for
   deployment; wrong for anything a test or a runtime caller wants to change.
