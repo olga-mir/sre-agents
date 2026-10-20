@@ -11,3 +11,5 @@ app/.adk/
 agents/*/.adk/
 .google-agents-cli/
 artifacts/
+deployment_metadata.json
+deploy/metadata/

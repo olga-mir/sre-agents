@@ -2,7 +2,7 @@
 # Project resources for a fresh deploy. Idempotent.
 #
 # Creates what can be created with gcloud before any agent exists:
-# APIs, service identities, the two buckets, the GitHub App private-key
+# APIs, service identities, the completions bucket, the GitHub App private-key
 # secret, and the BigQuery dataset. Agent Identity principals do not
 # exist until the first deploy, so IAM for those principals is
 # grant_agent_identity_iam.sh and grant_coordinator_iam.sh.
@@ -21,11 +21,6 @@ BQ_LOCATION="${BQ_LOCATION:-us-central1}"
 DATASET="${DATASET:-${BQ_DATASET:-ci_agent_eval}}"
 COMPLETIONS_BUCKET="${COMPLETIONS_BUCKET:-${PROJECT}-e2e-agent-completions}"
 SECRET="${GITHUB_APP_PRIVATE_KEY_SECRET:-e2e-agent-github-app-private-key}"
-
-# deploy_sre_coordinator.py takes a gs:// URI. Accept either form.
-STAGING_BUCKET="${STAGING_BUCKET:-${PROJECT}-agent-staging}"
-STAGING_BUCKET="${STAGING_BUCKET#gs://}"
-STAGING_BUCKET="${STAGING_BUCKET%%/*}"
 
 for bin in gcloud bq python3; do
   command -v "${bin}" >/dev/null 2>&1 || {
@@ -62,7 +57,6 @@ enable_apis() {
     agentidentity.googleapis.com \
     agentregistry.googleapis.com \
     apphub.googleapis.com \
-    developerconnect.googleapis.com \
     secretmanager.googleapis.com \
     storage.googleapis.com \
     logging.googleapis.com \
@@ -86,9 +80,6 @@ enable_apis() {
   gcloud beta services identity create \
     --service=aiplatform.googleapis.com \
     --project="${PROJECT}"
-  gcloud beta services identity create \
-    --service=developerconnect.googleapis.com \
-    --project="${PROJECT}"
 }
 
 ensure_bucket() {
@@ -106,18 +97,9 @@ ensure_bucket() {
 }
 
 ensure_buckets() {
+  # Completions for the GenAI upload hook. Agent Engine builds the
+  # container itself, so there is no staging bucket to create.
   ensure_bucket "${COMPLETIONS_BUCKET}"
-  ensure_bucket "${STAGING_BUCKET}"
-
-  # The coordinator deploy uploads source here, then Agent Runtime reads
-  # it as the reasoning-engine service agent. Binding before that agent
-  # exists is a member string; the principal appears on first deploy.
-  local project_number re_agent
-  project_number="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
-  re_agent="service-${project_number}@gcp-sa-aiplatform-re.iam.gserviceaccount.com"
-  gcloud storage buckets add-iam-policy-binding "gs://${STAGING_BUCKET}" \
-    --member="serviceAccount:${re_agent}" \
-    --role="roles/storage.objectViewer"
 }
 
 ensure_dataset() {
@@ -158,8 +140,7 @@ ensure_secret() {
     echo "and rerun with its private key PEM:" >&2
     echo "  GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh secret" >&2
     echo "Put GITHUB_APP_ID and GITHUB_APP_INSTALLATION_ID in .env." >&2
-    echo "This is the app the running agent uses. Developer Connect uses a" >&2
-    echo "different GitHub App; see deploy/developer_connect.sh." >&2
+    echo "This is the app the running agent uses to read the investigated repo." >&2
     exit 1
   fi
   [[ -f "${GITHUB_APP_PRIVATE_KEY_FILE}" ]] || {

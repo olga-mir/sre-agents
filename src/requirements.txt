@@ -1,7 +1,5 @@
-# Deps for the Developer-Connect source-based Agent Runtime deploy of
-# e2e_agent (see ../deploy/deploy_agent.py). developer_connect_source
-# checks out with dir="src", so this file sits at the checkout root and
-# e2e_agent/ is importable directly underneath it.
+# Runtime pins for the agents-cli container. The Dockerfile installs the
+# package, then installs this file. See ../deploy/e2e-agent.env.
 
 httpx==0.28.1
 pydantic==2.13.5
@@ -14,7 +12,7 @@ google-cloud-bigquery==3.45.0
 certifi==2026.7.22
 google-adk[a2a,otel-gcp]==2.11.0
 # Prompt bodies are uploaded to GCS by the GenAI instrumentor (see
-# OTEL_INSTRUMENTATION_GENAI_COMPLETION_HOOK in deploy/deploy_agent.py).
+# OTEL_INSTRUMENTATION_GENAI_COMPLETION_HOOK in deploy/e2e-agent.env).
 # fsspec 2025.10.0 is the version Cloud Trace documents as supporting that
 # upload; later releases are not all compatible.
 opentelemetry-instrumentation-google-genai>=0.7b1,<1

@@ -151,17 +151,14 @@ def compared_keys(tree: ast.AST) -> set[str]:
 
 
 def deployed_env_vars() -> set[str]:
-    """Keys of the env_vars dict literal in deploy/deploy_agent.py."""
-    tree = ast.parse((DEPLOY / "deploy_agent.py").read_text())
-    for n in ast.walk(tree):
-        if not isinstance(n, ast.Dict):
+    """Keys pinned in deploy/e2e-agent.env, the file task deploy sends."""
+    keys: set[str] = set()
+    for line in (DEPLOY / "e2e-agent.env").read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
             continue
-        for key, value in zip(n.keys, n.values):
-            if isinstance(key, ast.Constant) and key.value == "env_vars" \
-                    and isinstance(value, ast.Dict):
-                return {k.value for k in value.keys
-                        if isinstance(k, ast.Constant)}
-    return set()
+        keys.add(line.split("=", 1)[0].strip())
+    return keys
 
 
 def _tree_findings() -> dict[str, str]:
@@ -210,10 +207,28 @@ def test_budget_counters_are_compared_or_declared():
 def test_bound_knobs_are_pinned_in_the_deployed_config():
     missing = sorted(BOUND_KNOBS - deployed_env_vars())
     assert not missing, (
-        f"bound knobs not pinned in deploy_agent.py env_vars: {missing}. "
+        f"bound knobs not pinned in deploy/e2e-agent.env: {missing}. "
         "In production the bound would be whatever the code default happens "
         "to be, which is not a number anyone chose."
     )
+
+
+def test_deploy_is_agents_cli_without_developer_connect():
+    script = (DEPLOY / "deploy.sh").read_text()
+    assert "agents-cli deploy" in script
+    assert "e2e-agent.env" in script
+    assert "sre-coordinator.env" in script
+    assert "mktemp" in script
+    assert "developer_connect" not in script
+    assert "GOOGLE_CLOUD_PROJECT|GITHUB_TOKEN" in script
+    assert not (DEPLOY / "developer_connect.sh").exists()
+    assert not (DEPLOY / "deploy_agent.py").exists()
+    assert not (DEPLOY / "deploy_sre_coordinator.py").exists()
+    provision = (DEPLOY / "provision.sh").read_text()
+    assert "developerconnect.googleapis.com" not in provision
+    env = (DEPLOY / "e2e-agent.env").read_text()
+    assert "GOOGLE_CLOUD_PROJECT=" not in env
+    assert "GITHUB_TOKEN=" not in env
 
 
 # --- the rules themselves (teeth, independent of the tree) ------------------

@@ -1,9 +1,10 @@
 """Expose the e2e_agent Workflow as a local MCP server (stdio transport).
 
-This is the MCP counterpart of engine_entrypoint.py: that module wraps the
-graph as an Agent Runtime A2A service; this one wraps `root_agent` for an
-MCP host (Claude Code, an IDE) on the same machine. `to_mcp_server` runs the
-Workflow in-process against a local Runner (`node=root_agent`).
+This is the local MCP counterpart of the Agent Runtime container: that
+process serves `AdkApp` over the reasoning-engine routes; this one wraps
+`root_agent` for an MCP host (Claude Code, an IDE) on the same machine.
+`to_mcp_server` runs the Workflow in-process against a local Runner
+(`node=root_agent`).
 
 The single exposed tool takes the same JSON payload shape
 deploy/invoke_agent.py already sends the deployed engine, e.g.:

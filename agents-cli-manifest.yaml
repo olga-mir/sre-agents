@@ -9,8 +9,9 @@ create_params:
   # Workflow(name=...) in src/e2e_agent/agent/agent.py. Telemetry reports this
   # as gen_ai.agent.name.
   root_agent_name: sre_investigation
-  # This repo deploys through deploy/deploy_agent.py, not agents-cli deploy.
-  deployment_target: none
+  # task deploy runs agents-cli deploy. Both engines share this Dockerfile.
+  # sre-coordinator sets SRE_AGENT_MODULE; see deploy/deploy.sh.
+  deployment_target: agent_runtime
   session_type: none
   cicd_runner: skip
   agent_gateway: false

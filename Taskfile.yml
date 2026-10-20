@@ -13,8 +13,6 @@ vars:
   REPO: '{{.REPO | default "agent-substrate/substrate"}}'
   REGION: '{{.REGION | default "us-central1"}}'
   AGENT_LOCATION: '{{.AGENT_LOCATION | default "us-central1"}}'
-  DC_LOCATION: '{{.DC_LOCATION | default "us-central1"}}'
-  DC_REVISION: '{{.DC_REVISION | default "main"}}'
   BQ_DATASET: '{{.BQ_DATASET | default "ci_agent_eval"}}'
   BQ_LOCATION: '{{.BQ_LOCATION | default "us-central1"}}'
   BQ_SEED: analytics/bq/seed
@@ -26,7 +24,7 @@ tasks:
     cmds: [task --list]
 
   setup:
-    desc: Create the venv and install the agent, tests, ADK, and the deploy SDK
+    desc: Create the venv and install the agent, tests, ADK, and the invoke SDK
     cmds:
       - uv venv --python 3.12 .venv
       - uv pip install -e ".[adk,dev,devconnect]"
@@ -56,34 +54,21 @@ tasks:
 
   deploy:sdk:
     internal: true
-    desc: Install the local Agent Platform SDK (devconnect extra) if it is missing
+    desc: Install the local Agent Platform SDK used by task invoke and task deployments
     status:
       - '{{.PY}} -c "import agentplatform"'
     cmds:
       - uv pip install -e ".[devconnect]"
 
   deploy:
-    desc: 'Idempotently deploy/update an agent. AGENT=e2e (default) or sre-coordinator'
-    deps: [deploy:sdk]
+    desc: 'Idempotently deploy/update an agent with agents-cli. AGENT=e2e (default) or sre-coordinator'
     cmds:
       - |
-        set -euo pipefail
-        AGENT="{{.AGENT | default "e2e"}}"
-        case "$AGENT" in
-          e2e|e2e-agent) SCRIPT=deploy/deploy_agent.py ;;
-          sre|sre-coordinator|sre_coordinator) SCRIPT=deploy/deploy_sre_coordinator.py ;;
-          *)
-            echo "AGENT must be e2e or sre-coordinator" >&2
-            exit 1
-            ;;
-        esac
         GOOGLE_CLOUD_PROJECT={{.GCP}} \
         AGENT_LOCATION={{.AGENT_LOCATION}} \
-        DC_LOCATION={{.DC_LOCATION}} \
-        DC_REVISION={{.DC_REVISION}} \
-        {{if .STAGING_BUCKET}}STAGING_BUCKET={{.STAGING_BUCKET}}{{end}} \
-        {{if .ENGINE}}ENGINE_ID={{.ENGINE}}{{end}} \
-        {{.PY}} "$SCRIPT"
+        AGENT="{{.AGENT | default "e2e"}}" \
+        {{if .COMPLETIONS_BUCKET}}COMPLETIONS_BUCKET={{.COMPLETIONS_BUCKET}}{{end}} \
+        bash deploy/deploy.sh
 
   invoke:
     desc: 'Invoke the deployed e2e-agent. RUN=<id>'

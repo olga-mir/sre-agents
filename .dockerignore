@@ -1,0 +1,15 @@
+.venv
+.git
+.env
+.env.*
+runs
+analytics/bq/seed
+**/__pycache__
+.pytest_cache
+*.egg-info
+uv.lock
+deployment_metadata.json
+deploy/metadata
+.google-agents-cli
+artifacts
+model-garden/endpoint.env

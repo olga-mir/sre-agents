@@ -1,9 +1,9 @@
 """Optional A2A wrapper. Not the Agent Runtime deploy entrypoint.
 
-`engine_entrypoint.agent_engine` is `AdkApp` (`google-adk`) so traces,
-playground, and Gemini Enterprise `:streamQuery` stay enabled. This module
-keeps a constructible `A2aAgent` for tests and a possible later Cloud Run
-A2A surface. Do not bind it as `entrypoint_object`.
+The container serves `AdkApp` (`google-adk`) so traces, playground, and
+Gemini Enterprise `:streamQuery` stay enabled. This module keeps a
+constructible `A2aAgent` for tests and a possible later Cloud Run A2A
+surface. Do not bind it as the Agent Runtime entrypoint.
 """
 
 from __future__ import annotations

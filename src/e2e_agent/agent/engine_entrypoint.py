@@ -1,17 +1,13 @@
-"""Module-level object for the Developer-Connect source-based Agent Runtime
-deploy (see deploy/deploy_agent.py).
+"""AdkApp for the investigation graph.
 
-That path takes an `entrypoint_module`/`entrypoint_object` pair and binds a
-fixed `class_methods` list to whatever attribute that names. The raw ADK
-`App`/`Workflow` does not implement query/session/stream; `AdkApp` does
-(`register_operations()`). Keep this as `AdkApp` so Agent Runtime stays on
-the `google-adk` framework: playground, traces, and Gemini Enterprise
-`:streamQuery` registration.
+Agent Runtime starts `uvicorn app.fast_api_app:app` (see Dockerfile).
+That process builds the same `AdkApp` and serves `register_operations()`
+on the reasoning-engine routes. This module remains so a caller can
+import `agent_engine` without starting the HTTP server.
 
 Do not swap this for `A2aAgent`. That object is `agent_framework: custom`
-on this API, which drops the ADK console surface, and A2A registration
-then needs an Agent Card URL that source-based Agent Runtime does not
-hand to `agents-cli`.
+on this API, which drops the ADK console surface. Gemini Enterprise
+registration stays `--registration-type adk`.
 """
 
 import os

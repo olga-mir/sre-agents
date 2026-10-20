@@ -12,7 +12,7 @@ if not PROJECT_ID:
 AGENT_LOCATION = os.environ.get("AGENT_LOCATION", "us-central1")
 RUN_ID = os.environ.get("RUN", "33259998849")
 REPO = os.environ.get("REPO", "agent-substrate/substrate")
-ENGINE_ID = os.environ.get("ENGINE_ID") or os.environ.get("DC_ENGINE_ID")
+ENGINE_ID = os.environ.get("ENGINE_ID")
 
 client = agentplatform.Client(project=PROJECT_ID, location=AGENT_LOCATION)
 
