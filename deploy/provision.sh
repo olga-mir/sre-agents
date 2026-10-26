@@ -38,7 +38,9 @@ done
 
 require_billing() {
   local account
-  if ! account="$(gcloud billing projects describe "${PROJECT}" --format='value(billingAccountName)')"; then
+  # --billing-project: without it gcloud charges the call to the user-credential
+  # quota project (not ${PROJECT}), and fails if Cloud Billing API is off there.
+  if ! account="$(gcloud billing projects describe "${PROJECT}" --billing-project="${PROJECT}" --format='value(billingAccountName)')"; then
     echo "Could not read billing for ${PROJECT}." >&2
     exit 1
   fi
