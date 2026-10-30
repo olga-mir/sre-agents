@@ -24,10 +24,9 @@ tasks:
     cmds: [task --list]
 
   setup:
-    desc: Create the venv and install the agent, tests, ADK, and the invoke SDK
+    desc: Create the venv and install the agent, tests, and ADK
     cmds:
-      - uv venv --python 3.12 .venv
-      - uv pip install -e ".[adk,dev,devconnect]"
+      - uv sync --python 3.12 --extra dev
       - test -f .env || cp .env.example .env
       - task: local-token
       - '{{.PY}} -c "import tree_sitter_go; from tree_sitter import Parser, Language; Parser(Language(tree_sitter_go.language())); print(''go grammar ok'')"'
@@ -54,11 +53,11 @@ tasks:
 
   deploy:sdk:
     internal: true
-    desc: Install the local Agent Platform SDK used by task invoke and task deployments
+    desc: Install the local env used by task invoke and task deployments
     status:
       - '{{.PY}} -c "import agentplatform"'
     cmds:
-      - uv pip install -e ".[devconnect]"
+      - uv sync --python 3.12
 
   deploy:
     desc: 'Idempotently deploy/update an agent with agents-cli. AGENT=e2e (default) or sre-coordinator'

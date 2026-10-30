@@ -15,11 +15,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-adk = ["google-adk[a2a,mcp]>=2.11.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
+# Same packages as the adk dependency group below. uv 0.7 has no
+# default-extras, so `uv sync` uses the group and `pip install ".[adk]"`
+# uses this extra.
+adk = [
+    "google-adk[a2a,mcp]>=2.11.0",
+    "google-cloud-secret-manager>=2.30.0",
+    "google-cloud-bigquery>=3.45.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.36",
+    # task invoke imports agentplatform from this distribution. The image
+    # pins the same library in src/requirements.txt.
+    "google-cloud-aiplatform[agent_engines]>=2.1.3",
+]
 dev = ["pytest>=9.1.1", "pytest-asyncio>=1.4.0"]
-# Local SDK for task invoke and task deployments. task deploy is agents-cli.
-# The runtime image pins its own copy in src/requirements.txt.
-devconnect = ["google-cloud-aiplatform[agent_engines]>=2.1.3"]
 
 [project.scripts]
 e2e-agent = "e2e_agent.cli:main"
@@ -53,7 +61,13 @@ filterwarnings = [
 # Otherwise uv finds no project `adk` and executes the pipx binary, which
 # cannot import e2e_agent.
 [dependency-groups]
-adk = ["google-adk[a2a,mcp]>=2.11.0", "google-cloud-secret-manager>=2.30.0", "google-cloud-bigquery>=3.45.0", "opentelemetry-exporter-otlp-proto-http>=1.36"]
+adk = [
+    "google-adk[a2a,mcp]>=2.11.0",
+    "google-cloud-secret-manager>=2.30.0",
+    "google-cloud-bigquery>=3.45.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.36",
+    "google-cloud-aiplatform[agent_engines]>=2.1.3",
+]
 
 [tool.uv]
 default-groups = ["adk"]

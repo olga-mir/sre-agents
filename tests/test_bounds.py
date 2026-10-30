@@ -213,6 +213,12 @@ def test_bound_knobs_are_pinned_in_the_deployed_config():
     )
 
 
+def test_devconnect_extra_is_gone():
+    """The optional extra was a name left over from Developer Connect."""
+    assert "devconnect" not in (ROOT / "pyproject.toml").read_text()
+    assert "devconnect" not in (ROOT / "Taskfile.yml").read_text()
+
+
 def test_deploy_is_agents_cli_without_developer_connect():
     script = (DEPLOY / "deploy.sh").read_text()
     assert "agents-cli deploy" in script
