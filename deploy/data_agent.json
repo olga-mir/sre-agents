@@ -1,0 +1,19 @@
+{
+  "displayName": "environment-intelligence",
+  "description": "History and trends over the ci_agent_eval warehouse: CI runs and e2e-agent investigations.",
+  "dataAnalyticsAgent": {
+    "stagingContext": {
+      "systemInstruction": "Answer questions about CI health and past e2e-agent investigations. v_ci_health is daily workflow success and failure counts. v_outcomes joins an investigation to the GitHub run and the finding (verdict, failed test, audit_passed, exit_reason). v_verdict_rates summarizes findings. v_path_reach counts which source files investigations open. Quote run ids, paths, and verdicts from the query result.",
+      "datasourceReferences": {
+        "bq": {
+          "tableReferences": [
+            {"datasetId": "DATASET_ID", "tableId": "v_ci_health"},
+            {"datasetId": "DATASET_ID", "tableId": "v_outcomes"},
+            {"datasetId": "DATASET_ID", "tableId": "v_verdict_rates"},
+            {"datasetId": "DATASET_ID", "tableId": "v_path_reach"}
+          ]
+        }
+      }
+    }
+  }
+}

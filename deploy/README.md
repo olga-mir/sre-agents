@@ -29,9 +29,8 @@ task publish GE_APP=projects/$PROJECT/locations/global/collections/default_colle
 
 ## GitHub credential
 
-| Credential | Used for | Where it lives |
-|---|---|---|
-| GitHub App you create | Runtime reads of the repo under investigation (`E2E_AGENT_REPO`) | PEM in secret `e2e-agent-github-app-private-key`. `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID` in `.env`. `task deploy` copies those two into Agent Runtime. |
+Create GitHub App to read the repo which e2e CI runs are investigated by the agent. The repo is configured with `E2E_AGENT_REPO`
+PEM in secret `e2e-agent-github-app-private-key`. `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID` in `.env`. `task deploy` copies them into Agent Runtime.
 
 Local `task investigate` uses `GITHUB_TOKEN` from `task setup`. Agent Runtime has no `gh` login, so the deployed agent uses the GitHub App. `task deploy` moves `.env` out of the tree before `agents-cli` runs, so that token is not copied into the runtime.
 
