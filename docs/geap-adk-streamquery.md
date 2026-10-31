@@ -75,8 +75,9 @@ or Registry.
 
 ```bash
 task deploy
-task publish   # lists apps when GE_APP is unset
-task publish GE_APP=projects/YOUR_PROJECT/locations/global/collections/default_collection/engines/APP_ID
+# GEMINI_ENTERPRISE_APP_ID is the app id. Unset, task publish lists apps.
+task publish
+task publish AGENT=sre-coordinator
 ```
 
 The build is the working tree `agents-cli` uploads. Publish only after the

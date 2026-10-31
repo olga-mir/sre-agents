@@ -47,10 +47,11 @@ This must be done manually before running script.
 
 1. **GitHub App for the running agent.** Create one at [github.com/settings/apps](https://github.com/settings/apps) and install it on the repo e2e-agent will read (`E2E_AGENT_REPO`, default `agent-substrate/substrate`). Grant read on Actions, Contents, and Pull requests. Put the App ID and the installation ID in `.env` as `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID`. Generate a private key. The provision command below uploads it to secret `e2e-agent-github-app-private-key`. This app is what the deployed agent uses. Local `task investigate` still uses the `GITHUB_TOKEN` that `task setup` writes.
 
-2. **Gemini Enterprise app.** Create the app in the console if the project does not have one. `task publish` with no `GE_APP` lists apps. Registration is:
+2. **Gemini Enterprise app.** Create the app in the console if the project does not have one. Put the app id in `.env` as `GEMINI_ENTERPRISE_APP_ID` (the `engines/` segment). `task publish` builds the resource name. With that variable unset, it lists apps. Registration is:
 
 ```bash
-task publish GE_APP=projects/$PROJECT/locations/global/collections/default_collection/engines/$APP_ID
+task publish
+task publish AGENT=sre-coordinator
 ```
 
 3. **OPTIONAL Model Garden.** `model-garden/` deploys a GPU endpoint and bills while the replica is up. `e2e-agent` stays on `gemini-3.7-flash` unless reconfigured and re-deployed. `model-garden/smoke.sh` is a smoke test for deployment. See [`model-garden/README.md`](model-garden/README.md).

@@ -21,8 +21,9 @@ deploy/grant_agent_identity_iam.sh
 task deploy AGENT=sre-coordinator
 deploy/grant_coordinator_iam.sh
 
-# 4. Register into an existing Gemini Enterprise app.
-task publish GE_APP=projects/$PROJECT/locations/global/collections/default_collection/engines/$APP_ID
+# 4. Register both engines. .env needs GEMINI_ENTERPRISE_APP_ID (the app id).
+task publish
+task publish AGENT=sre-coordinator
 ```
 
 `deploy/provision.sh bigquery` is what `task bq:seed` calls. Re-running any of these scripts leaves existing resources in place.
