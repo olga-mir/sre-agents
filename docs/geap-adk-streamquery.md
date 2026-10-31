@@ -85,22 +85,17 @@ engine is ADK again — ADK registration against a custom/A2A revision would
 point `:streamQuery` at methods that are not there.
 
 Graph START still validates `TriggerEvent` JSON. Playground, GE, MCP, and
-`deploy/invoke_agent.py` all send that payload. Chat-to-JSON parsing
-(`trigger_parse.py`) was written for the A2A executor and is **not** on this
-path.
+`deploy/invoke_agent.py` all send that payload.
 
 HITL from Gemini Enterprise is still unwired (session resume across GE
 turns). Local pause/resume works.
 
-## 5. If we actually need A2A later
+## 5. No A2A wrapper in this repo
 
-Do it as a **second** deploy: `to_a2a` (or Cloud Run serving a card URL),
-then `agents-cli publish … --registration-type a2a --agent-card-url …`.
-Keep the AdkApp engine if we still want the console. Do not bind
-`A2aAgent` as this repo's Agent Runtime `entrypoint_object`.
-
-`src/e2e_agent/agent/a2a_app.py` remains as a constructible wrapper and
-tests only.
+`a2a_app.py` and the chat-to-JSON parser written for its executor
+(`trigger_parse.py`) were removed. This engine stays `AdkApp`. An external
+card, if one is ever required, is a separate service with its own card URL.
+Do not bind `A2aAgent` as this repo's Agent Runtime `entrypoint_object`.
 
 ## 6. Why Cloud Run A2A is not “ADK prefers Cloud Run”
 

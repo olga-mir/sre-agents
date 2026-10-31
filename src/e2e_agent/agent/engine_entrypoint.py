@@ -5,9 +5,9 @@ That process builds the same `AdkApp` and serves `register_operations()`
 on the reasoning-engine routes. This module remains so a caller can
 import `agent_engine` without starting the HTTP server.
 
-Do not swap this for `A2aAgent`. That object is `agent_framework: custom`
-on this API, which drops the ADK console surface. Gemini Enterprise
-registration stays `--registration-type adk`.
+Gemini Enterprise registration stays `--registration-type adk`. An A2A
+entrypoint is `agent_framework: custom` on this API and drops the ADK
+console surface.
 """
 
 import os

@@ -24,7 +24,7 @@ COPY src ./src
 
 # pip's default timeout is 15s. 60s is the bound for each install step.
 # The second install pins the runtime set in src/requirements.txt, including
-# google-adk[a2a,otel-gcp] and the GenAI completion-upload stack.
+# google-adk[otel-gcp] and the GenAI completion-upload stack.
 # uvicorn is a dependency of google-adk; install it explicitly so the CMD
 # does not depend on that remaining true.
 RUN pip install --no-cache-dir --timeout 60 . \

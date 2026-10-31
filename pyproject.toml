@@ -19,7 +19,7 @@ dependencies = [
 # default-extras, so `uv sync` uses the group and `pip install ".[adk]"`
 # uses this extra.
 adk = [
-    "google-adk[a2a,mcp]>=2.11.0",
+    "google-adk[mcp]>=2.11.0",
     "google-cloud-secret-manager>=2.30.0",
     "google-cloud-bigquery>=3.45.0",
     "opentelemetry-exporter-otlp-proto-http>=1.36",
@@ -62,7 +62,7 @@ filterwarnings = [
 # cannot import e2e_agent.
 [dependency-groups]
 adk = [
-    "google-adk[a2a,mcp]>=2.11.0",
+    "google-adk[mcp]>=2.11.0",
     "google-cloud-secret-manager>=2.30.0",
     "google-cloud-bigquery>=3.45.0",
     "opentelemetry-exporter-otlp-proto-http>=1.36",
