@@ -27,3 +27,8 @@ This folder was flattened to just what supports that demo. Read in this order:
    service.
 7. [`demo-prompts.md`](./demo-prompts.md) — the demo script: prompts for the
    coordinator, the BigQuery data agent, and direct e2e-agent triggers.
+
+[`dreams/`](./dreams/LEDGER.md) is not part of that reading order. It is the
+memory for the dreaming skill: when the last pass ran, and which ideas were
+adopted, declined, or deferred. The procedure is
+[`.agents/skills/dreaming/SKILL.md`](../.agents/skills/dreaming/SKILL.md).
