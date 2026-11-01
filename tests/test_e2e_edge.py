@@ -34,6 +34,7 @@ class FakeEngine:
         self.scripts = list(scripts)
         self.sessions = set()
         self.queries = []
+        self.events = []
 
     def create_session(self, *, user_id):
         self.sessions.add("s1")
@@ -42,7 +43,20 @@ class FakeEngine:
     def stream_query(self, *, user_id, message, session_id=None):
         assert session_id in self.sessions, "resume/start needs a created session"
         self.queries.append((session_id, message))
-        return iter(self.scripts.pop(0))
+        script = self.scripts.pop(0)
+        if isinstance(message, dict):
+            fr = message["parts"][0]["function_response"]
+            self.events.append({"content": {"parts": [{"functionResponse": fr}]}})
+        return self._record(script)
+
+    def _record(self, script):
+        for event in script:  # lazy: a runaway stream must not be drained here
+            self.events.append(event)
+            yield event
+
+    def get_session(self, *, user_id, session_id):
+        assert session_id in self.sessions, "unknown session"
+        return {"id": session_id, "events": list(self.events)}
 
 
 def test_start_done():
@@ -127,3 +141,28 @@ def test_create_session_without_id_raises():
             return {}
     with pytest.raises(RuntimeError):
         edge.start(Bad([[]]), user_id="u", repo="o/r", run_id="1")
+
+
+def test_resume_with_consumed_interrupt_sends_nothing():
+    # A first resume timed out client-side after the remote consumed the answer;
+    # the retry replays the same interrupt_id.
+    eng = FakeEngine([[pause("i0")], [text("final")]])
+    edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    edge.resume(eng, user_id="u", session_id="s1", interrupt_id="i0", decision="finish")
+    sent = len(eng.queries)
+    r = edge.resume(eng, user_id="u", session_id="s1", interrupt_id="i0", decision="finish")
+    assert r["status"] == "failed" and "not waiting" in r["report"]
+    assert len(eng.queries) == sent
+
+
+def test_resume_with_stale_id_surfaces_new_prompt_instead_of_answering():
+    eng = FakeEngine([[pause("i0")], [text("pass 2"), pause("i1", "second question")]])
+    edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    # consumed by the remote, but the caller never saw the reply
+    edge.resume(eng, user_id="u", session_id="s1", interrupt_id="i0",
+                decision="dig_deeper", focus="x")
+    sent = len(eng.queries)
+    r = edge.resume(eng, user_id="u", session_id="s1", interrupt_id="i0", decision="finish")
+    assert r["status"] == "needs_input"
+    assert r["pending"]["interrupt_id"] == "i1" and r["report"] == "second question"
+    assert len(eng.queries) == sent

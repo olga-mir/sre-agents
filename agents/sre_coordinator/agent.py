@@ -76,8 +76,20 @@ def _user_id(repo: str, run_id: str) -> str:
     return f"sre-coordinator:{repo}:{run_id}"
 
 
-def _remember(tool_context: ToolContext, repo: str, run_id: str,
-              result: e2e_edge.E2EResult) -> None:
+def _record_handle(tool_context: ToolContext, repo: str, run_id: str,
+                   result: e2e_edge.E2EResult) -> None:
+    """Record, in coordinator session state, how to resume run_id's remote investigation.
+
+    The tools only receive run_id from the model; the remote e2e-agent
+    session_id and interrupt_id must come from somewhere the model cannot
+    garble, and must survive across turns. Keyed by run_id so several paused
+    investigations can coexist in one coordinator session.
+
+    If result is paused (needs_input), store/overwrite the handle for run_id.
+    Otherwise (done or failed) drop it: nothing is left to resume. Not called
+    when the remote call raises, so a transient error leaves the previous
+    handle in place.
+    """
     runs = dict(tool_context.state.get(_STATE_KEY) or {})
     if result["status"] == "needs_input" and result["pending"]:
         runs[run_id] = {"session_id": result["session_id"], "repo": repo,
@@ -110,7 +122,7 @@ def start_investigation(repo: str, run_id: str, tool_context: ToolContext) -> di
                                 repo=repo, run_id=run_id)
     except RuntimeError as exc:
         return _failed(str(exc))
-    _remember(tool_context, repo, run_id, result)
+    _record_handle(tool_context, repo, run_id, result)
     return {k: result[k] for k in ("status", "report", "pending")}
 
 
@@ -146,7 +158,7 @@ def resume_investigation(run_id: str, decision: str, focus: str,
             decision=decision, focus=focus.strip())
     except RuntimeError as exc:
         return _failed(str(exc))
-    _remember(tool_context, handle["repo"], run_id, result)
+    _record_handle(tool_context, handle["repo"], run_id, result)
     return {k: result[k] for k in ("status", "report", "pending")}
 
 

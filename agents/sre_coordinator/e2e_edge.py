@@ -13,7 +13,8 @@ Wire shapes, from google-adk (workflow/utils/_workflow_hitl_utils.py):
 Agent Runtime serialises events to JSON dicts, so the keys may be camelCase
 (`functionCall`) or snake_case; both are read. NOT yet confirmed against a
 live engine: that `stream_query(message=<Content dict>)` is accepted for a
-resume. Spike that first (see docs in the PR description).
+resume, and that the engine client exposes `get_session(user_id, session_id)`
+returning the session's events (used by `pending_interrupt`). Spike both first (see docs in the PR description).
 """
 
 from __future__ import annotations
@@ -56,6 +57,9 @@ class Engine(Protocol):
     def stream_query(
         self, *, user_id: str, message: Any, session_id: str | None = None
     ) -> Iterable[Any]: ...
+
+    def get_session(self, *, user_id: str, session_id: str) -> Any:
+        """The remote session as a dict (or object) carrying `events`."""
 
 
 @dataclass
@@ -136,9 +140,54 @@ def start(engine: Engine, *, user_id: str, repo: str, run_id: str) -> E2EResult:
     return _result(sid, scan)
 
 
+def pending_interrupt(engine: Engine, *, user_id: str, session_id: str) -> Pending | None:
+    """The request-input pause the remote session is waiting on right now.
+
+    A pause is open when its call id has no later function response with the
+    same id. Last open pause wins, as in `_scan`. None means the session is not
+    waiting on anyone.
+    """
+    session = engine.get_session(user_id=user_id, session_id=session_id)
+    events = session.get("events") if isinstance(session, dict) else getattr(session, "events", None)
+    open_: dict[str, Pending] = {}
+    for n, event in enumerate(events or []):
+        if n >= MAX_EVENTS:
+            break
+        if not isinstance(event, dict):
+            continue
+        for part in (event.get("content") or {}).get("parts") or []:
+            call = _get(part, "functionCall", "function_call")
+            if call and call.get("name") == REQUEST_INPUT_CALL and call.get("id"):
+                open_[call["id"]] = Pending(
+                    interrupt_id=call["id"],
+                    message=str((call.get("args") or {}).get("message") or ""))
+            resp = _get(part, "functionResponse", "function_response")
+            if resp and resp.get("name") == REQUEST_INPUT_CALL:
+                open_.pop(resp.get("id"), None)
+    return list(open_.values())[-1] if open_ else None
+
+
 def resume(engine: Engine, *, user_id: str, session_id: str, interrupt_id: str,
            decision: Literal["finish", "dig_deeper"], focus: str = "") -> E2EResult:
-    """Answer a paused investigation with the human's DeepDiveFeedback."""
+    """Answer a paused investigation with the human's DeepDiveFeedback.
+
+    The stored interrupt_id can be stale: an earlier resume may have timed out
+    after the remote node consumed the answer. So the remote session is asked
+    what it is waiting on first, and the answer is sent only if that is the
+    interrupt the human was shown.
+    """
+    pending = pending_interrupt(engine, user_id=user_id, session_id=session_id)
+    if pending is None:
+        return E2EResult(
+            status="failed", pending=None, session_id=session_id,
+            report="e2e-agent is not waiting for input; an earlier answer was "
+                   "probably already consumed. Nothing was sent. Check the "
+                   "investigation history instead of resuming.")
+    if pending["interrupt_id"] != interrupt_id:
+        # The human never saw this prompt; answering it blindly would be
+        # choosing for them. Surface it and let them answer.
+        return E2EResult(status="needs_input", session_id=session_id,
+                         report=pending["message"][:REPORT_CAP], pending=pending)
     message = {
         "role": "user",
         "parts": [{
