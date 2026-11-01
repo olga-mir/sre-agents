@@ -22,8 +22,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Iterable, Literal, Protocol, TypedDict
 
-# Cap on report text handed back to the coordinator LLM. Same limit the old
-# tool used; it bounds the coordinator's context, not the investigation.
+# Cap on report text handed back to the coordinator LLM. It bounds the
+# coordinator's context, not the investigation.
 REPORT_CAP = 8000
 
 # Cap on events consumed from one stream_query. Without it a runaway remote

@@ -253,6 +253,17 @@ to `agents-cli`. `.env` is not: deploy moves it aside so a local
 - A guardrail without a test that trips it will be removed by the next person
   who finds it inconvenient.
 
+## Pass 9 - comments and docs describe the code as it is now
+
+- A comment, docstring, or doc describes the current behaviour only. Flag
+  references to history: "the old tool", "same as before", "no longer",
+  "replaces X", "previously", "now does Y". The reader has no access to what
+  the old thing was, so the reference explains nothing and goes stale.
+- Rewrite to state the fact directly (`# Cap on report text handed back to the
+  coordinator LLM. It bounds the coordinator's context.`), not by comparison to
+  a predecessor.
+- History belongs in the commit message and PR description, not in the file.
+
 ---
 
 ## Severity
