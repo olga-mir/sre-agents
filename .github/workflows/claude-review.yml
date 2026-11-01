@@ -5,8 +5,9 @@
 # One-time GitHub and Anthropic Console setup: docs/ci-review.md.
 #
 # Claude auth uses Anthropic Workload Identity Federation (GitHub OIDC token
-# exchange), not ANTHROPIC_API_KEY. The four ids below are identifiers, not
-# credentials; they live in repository variables.
+# exchange), not ANTHROPIC_API_KEY. The four ids below are not credentials, but
+# this repo is public and vars.* are printed unmasked in run logs, so they live
+# in repository secrets.
 
 name: Claude review
 
@@ -84,10 +85,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         with:
-          anthropic_federation_rule_id: ${{ vars.ANTHROPIC_FEDERATION_RULE_ID }}
-          anthropic_organization_id: ${{ vars.ANTHROPIC_ORGANIZATION_ID }}
-          anthropic_service_account_id: ${{ vars.ANTHROPIC_SERVICE_ACCOUNT_ID }}
-          anthropic_workspace_id: ${{ vars.ANTHROPIC_WORKSPACE_ID }}
+          anthropic_federation_rule_id: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic_service_account_id: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           # Read-only tools, git/gh reads, one comment write, and adk.dev for
           # ADK questions. No Edit/Write, no unscoped Bash.
           # --max-turns bounds the model loop; timeout-minutes bounds wall time.

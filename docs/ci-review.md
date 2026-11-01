@@ -21,10 +21,11 @@ Collect following IDs:
 ### GitHub
 
 1. **Install the Claude GitHub App** on this repo (<https://github.com/apps/claude>) or run `claude /install-github-app`. Contents, Pull requests and Issues permissions are enough; the workflow token itself is read-only plus PR comments.
-2. **Repository variables** (Settings → Secrets and variables → Actions →
-   Variables). They are identifiers, not credentials:
+2. **Repository secrets** (Settings → Secrets and variables → Actions →
+   Secrets). They are not credentials, but this repo is public and variables
+   are printed unmasked in run logs; secrets are masked:
 
-   | Variable | Value |
+   | Secret | Value |
    |---|---|
    | `ANTHROPIC_FEDERATION_RULE_ID` | `fdrl_...` |
    | `ANTHROPIC_ORGANIZATION_ID` | org UUID |
