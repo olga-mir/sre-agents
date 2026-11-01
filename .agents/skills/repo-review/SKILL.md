@@ -5,7 +5,7 @@ description: >-
   ownership, swallowed failures, trust-boundary gaps, resumability and cost, as
   an ADK Workflow graph on Agent Runtime. Use when asked to review a PR, a
   diff or a branch here, or when CI invokes /repo-review. Not for formatting,
-  naming or docstring feedback.
+  naming or docstring style feedback.
 ---
 
 # Review procedure
@@ -286,3 +286,7 @@ Naming, formatting, docstring style, type-annotation completeness, "add a test"
 with no named case, "consider extracting a helper", or a bound proposed with no
 number and no source for the number. If a finding cannot name the input that
 triggers it and the observable consequence, it is not a finding.
+
+Docstring *style* is out; comment *content* is in. A comment that refers to
+history (Pass 9) is a finding: the trigger is the comment text, the consequence
+is a reader who cannot resolve the reference.
