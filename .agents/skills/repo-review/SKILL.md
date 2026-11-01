@@ -1,3 +1,44 @@
+---
+name: repo-review
+description: >-
+  Reviews a diff in this repo (src/e2e_agent/, deploy/) for liveness, loop
+  ownership, swallowed failures, trust-boundary gaps, resumability and cost, as
+  an ADK Workflow graph on Agent Runtime. Use when asked to review a PR, a
+  diff or a branch here, or when CI invokes /repo-review. Not for formatting,
+  naming or docstring feedback.
+---
+
+# Review procedure
+
+Before the passes:
+
+1. Read `AGENTS.md`. Its 13 invariants are the review contract; a finding that
+   violates one cites it by number.
+2. Get the diff: `git diff origin/<base>...HEAD`, or `gh pr diff <n>` in CI.
+   Review only what the diff touches, plus the callers it changes the
+   behavior of.
+3. Line numbers quoted in this guide (`nodes.py:440`, `writer.py:86`) were
+   true when written. Grep the symbol before relying on one.
+4. For ADK, Agent Runtime or `agents-cli` behavior, check the source of truth
+   instead of memory: the `google-agents-cli-*` skills if installed, otherwise
+   https://adk.dev and the installed `google-adk` package under `.venv/`.
+   State which one you checked.
+
+## Output contract
+
+- One finding = file:line, the input or state that triggers it, the observable
+  consequence, severity from the scale below. No trigger and consequence, no
+  finding (see the last section).
+- Order findings by severity, highest first. Cap at 10; say how many were
+  dropped.
+- Say which passes found nothing, in one line, so silence is distinguishable
+  from "did not look".
+- If an `AGENTS.md` "Before you say you are done" item is missing from the PR
+  (bound product, what is still unbounded, test that trips the guardrail),
+  report it as one finding, not several.
+- In CI the result is one PR comment via `gh pr comment`. Quote literals
+  exactly (invariant 7). Never approve or request changes.
+
 # Code review guide
 
 For `src/e2e_agent` and `deploy/`: an ADK `Workflow` graph that runs on Agent
@@ -16,7 +57,8 @@ for. Three properties make it different:
    attacker-influenced text that this code turns into shas, paths, and SQL
    parameters.
 
-Use this on a diff. Order the passes as written: the grep sweep is cheap and
+Use this on a diff. The grep sweep needs a full checkout of the PR head, which
+CI provides. Order the passes as written: the grep sweep is cheap and
 catches the class of defect that is an *absence*, which reading cannot.
 
 ---

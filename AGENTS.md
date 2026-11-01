@@ -1,7 +1,7 @@
 # AGENTS.md
 
 Project invariants for coding assistants. Read this before changing anything
-under `src/e2e_agent/` or `deploy/`. Read `docs/code-review-guide.md`
+under `src/e2e_agent/` or `deploy/`. Read `.agents/skills/repo-review/SKILL.md`
 before reviewing a diff.
 
 ## What this is
@@ -116,7 +116,8 @@ These are not style preferences.
 | `deploy/deploy.sh` | `agents-cli deploy` for both engines |
 | `deploy/provision.sh` | bash + gcloud project setup: APIs, buckets, secret, dataset |
 | `tests/test_bounds.py` | mechanical bound checks over `src/` and `deploy/` |
-| `docs/code-review-guide.md` | the review guide |
+| `.agents/skills/repo-review/SKILL.md` | the review guide (skill; `/repo-review`) |
+| `.github/workflows/claude-review.yml` | PR review on a `/review` comment; setup in `docs/ci-review.md` |
 
 ## Before you say you are done
 

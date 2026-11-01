@@ -1,9 +1,8 @@
 # sre-agents
 
-ADK agents on Gemini Enterprise Agent Platform, built for conference talks and presentations on internal SRE Agent platforms, e.g.
-[Structure Over Prompts](https://olga-mir.github.io/Public-Speaking/2026.10.03__GDG-Melbourne-DevFest__Structure-Over-Prompts/).
+ADK agents on Gemini Enterprise Agent Platform, built for conference talks and presentations on internal SRE Agent platforms.
 
-It demos simple agentic architecture beyond one single agent and Agent Runtime: **sre-coordinator**, **e2e-agent**, and a BigQuery data agent. It is a trimmed example, not a production template.
+It demos simple agentic architecture beyond one single agent and Agent Runtime: **sre-coordinator**, **e2e-agent**, and a BigQuery Data Agent. It is a trimmed example, not a production template.
 
 For maintained ADK patterns, see [google/adk-recipes/core/python](https://github.com/google/adk-recipes/tree/main/core/python). Currently only Python exists, but I hope Go will catchup soon.
 
@@ -38,6 +37,10 @@ task bq:seed
 task bq:seed WHAT=investigations
 task bq:query Q=ci_health
 ```
+
+## Review
+
+Comment `/review` on a pull request to get a Claude review against the [`repo-review`](.agents/skills/repo-review/SKILL.md) skill. One-time GitHub and Anthropic Console setup: [`docs/ci-review.md`](docs/ci-review.md).
 
 ## Deploy
 
