@@ -11,7 +11,7 @@ Reference: [claude-code-action setup](https://github.com/anthropics/claude-code-
 
 1. Console → **Settings → Keys & Access → Workload identity**. [Claude WIF console](https://platform.claude.com/settings/workload-identity-federation) register an issuer: `https://token.actions.githubusercontent.com`, JWKS source `discovery`.
 2. **Settings → Service accounts** → create one, add it to the workspace that should be billed.
-3. Create a **federation rule** for the SA, matching subject prefix `repo:<user-or-org>/<repo-name>:*`
+3. Create a **federation rule** for the SA, matching the subject prefix GitHub actually emits. Newer repos use an ID-based subject, `repo:<owner>@<owner-id>/<repo>@<repo-id>:ref:refs/heads/<branch>`, so the name-only form `repo:<owner>/<repo>:*` will not match and the exchange fails with `match_subject_prefix`. Use `repo:<owner>@<owner-id>/<repo>@<repo-id>:*` (immutable ids, so a renamed or recreated repo cannot satisfy it). Copy the real subject from a failed federation event in the Console activity log. `issue_comment` runs always have `ref:refs/heads/<default branch>`.
 
 Collect following IDs:
 * organization UUID and the `wrkspc_...`.

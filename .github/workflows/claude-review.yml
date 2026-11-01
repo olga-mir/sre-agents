@@ -15,11 +15,6 @@ on:
   issue_comment:
     types: [created]
 
-# One review per PR at a time; a second /review replaces the first.
-concurrency:
-  group: claude-review-${{ github.event.issue.number }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
   pull-requests: write # gh pr comment
@@ -29,6 +24,13 @@ jobs:
   review:
     name: Review PR
     runs-on: ubuntu-latest
+    # One review per PR at a time; a second /review replaces the first. This is
+    # job-level on purpose: workflow-level concurrency is evaluated before `if:`,
+    # so any comment on the PR (including the review comment this job posts)
+    # would enter the group and cancel the running review.
+    concurrency:
+      group: claude-review-${{ github.event.issue.number }}
+      cancel-in-progress: true
     # Whole-job deadline. The action has no wait of its own that outlives this.
     timeout-minutes: 20
     if: >-
