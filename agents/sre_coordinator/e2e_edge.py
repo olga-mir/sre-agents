@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Iterable, Literal, Protocol, TypedDict
+from typing import Any, Iterable, Iterator, Literal, Protocol, TypedDict
+
+from google.genai.errors import UnknownApiResponseError
 
 # Cap on report text handed back to the coordinator LLM. It bounds the
 # coordinator's context, not the investigation.
@@ -75,6 +77,60 @@ def _get(d: dict, *keys: str) -> Any:
     return None
 
 
+_RAW_MARKER = "Raw response: "
+
+
+def _salvage(exc: UnknownApiResponseError) -> list[dict]:
+    """Decode the events out of a chunk the SDK failed to split.
+
+    google-genai finds event boundaries by counting `{` and `}` per line
+    without regard for JSON strings. A CI log line with an unbalanced brace
+    (a tool response quoting a log) leaves the count off for the rest of the
+    stream, so every later event, the final report and the request-input
+    pause included, arrives as one concatenated chunk and json.loads raises
+    "Extra data". The whole chunk is in the exception text; decode it object by
+    object. Bounded by the length of that text.
+    """
+    msg = str(exc)
+    _, found, raw = msg.partition(_RAW_MARKER)
+    if not found:
+        return []
+    decoder = json.JSONDecoder()
+    events: list[dict] = []
+    i = 0
+    while i < len(raw):
+        while i < len(raw) and raw[i].isspace():
+            i += 1
+        if i >= len(raw):
+            break
+        try:
+            obj, i = decoder.raw_decode(raw, i)
+        except ValueError:
+            break
+        if isinstance(obj, dict):
+            events.append(obj)
+    return events
+
+
+def _events(stream: Iterable[Any]) -> Iterator[Any]:
+    """Yield stream events, recovering from the SDK's chunk-splitting failure.
+
+    The SDK generator is dead after it raises, but the failing chunk is the
+    last one it would have produced (an unbalanced count never returns to
+    zero, so the remainder is flushed as a single chunk), so nothing after it
+    is lost.
+    """
+    try:
+        yield from stream
+    except UnknownApiResponseError as exc:
+        events = _salvage(exc)
+        if not events:
+            raise RuntimeError(
+                f"e2e-agent stream was unparseable and nothing was recoverable: "
+                f"{str(exc)[:300]}") from exc
+        yield from events
+
+
 def _scan(events: Iterable[Any]) -> _Scan:
     """Collect authored text and the request-input pause, if any.
 
@@ -84,7 +140,7 @@ def _scan(events: Iterable[Any]) -> _Scan:
     """
     texts: list[str] = []
     pending: Pending | None = None
-    for n, event in enumerate(events):
+    for n, event in enumerate(_events(events)):
         if n >= MAX_EVENTS:
             break
         if not isinstance(event, dict):

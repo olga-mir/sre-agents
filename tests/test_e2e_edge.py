@@ -166,3 +166,48 @@ def test_resume_with_stale_id_surfaces_new_prompt_instead_of_answering():
     assert r["status"] == "needs_input"
     assert r["pending"]["interrupt_id"] == "i1" and r["report"] == "second question"
     assert len(eng.queries) == sent
+
+
+def _mischunked(*events, head=()):
+    """A stream that yields `head`, then raises as google-genai does when its
+    brace counter loses sync: one chunk holding every remaining event."""
+    import json
+    from google.genai.errors import UnknownApiResponseError
+
+    def gen():
+        yield from head
+        raw = "\n".join(json.dumps(e) for e in events)
+        raise UnknownApiResponseError(
+            f"Failed to parse response as JSON. Raw response: {raw}")
+    return gen()
+
+
+class _StreamEngine(FakeEngine):
+    def __init__(self, stream):
+        super().__init__([])
+        self._stream = stream
+
+    def stream_query(self, *, user_id, message, session_id=None):
+        assert session_id in self.sessions
+        return self._stream
+
+
+def test_mischunked_stream_is_recovered_with_report_and_pause():
+    # The unbalanced-brace log line in a tool response is what desyncs the SDK.
+    tool = {"content": {"parts": [{"function_response": {
+        "name": "find_in_log", "response": {"line": "panic: {unclosed"}}}]}}
+    stream = _mischunked(tool, text("root cause: X"), pause(), head=[text("first")])
+    r = edge.start(_StreamEngine(stream), user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "needs_input"
+    assert r["pending"]["interrupt_id"] == "deep_dive_request_0"
+    assert r["report"] == "first\nroot cause: X"
+
+
+def test_unrecoverable_stream_error_is_runtime_error_not_a_crash():
+    from google.genai.errors import UnknownApiResponseError
+
+    def gen():
+        raise UnknownApiResponseError("Failed to parse response as JSON. Raw response: <html>")
+        yield
+    with pytest.raises(RuntimeError, match="nothing was recoverable"):
+        edge.start(_StreamEngine(gen()), user_id="u", repo="o/r", run_id="1")
