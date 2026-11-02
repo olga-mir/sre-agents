@@ -17,6 +17,7 @@ from ..code.go_outline import outline_go_source, outline_unparsed
 from ..code.model import FileOutline, Symbol
 from ..github.client import GitHub, GitHubNotFound, Hunk
 from ..store import SourceStore, evidence_filename
+from .untrusted import UNTRUSTED_CLOSE, UNTRUSTED_OPEN, envelope  # noqa: F401
 
 WINDOW_CAP = 120  # hard cap on read_window, in lines
 SYMBOL_CAP = 200  # a span longer than this is truncated, and says so
@@ -24,12 +25,7 @@ GO_SUFFIXES = (".go",)
 RAW_DIFF_PATHS = ("go.mod", "go.sum")  # small and structural; never outlined
 MAX_CONCURRENT_FETCHES = 6  # cap on in-flight GitHub calls from one batch
 
-UNTRUSTED_OPEN, UNTRUSTED_CLOSE = "<untrusted_ci_output>", "</untrusted_ci_output>"
-
-
-def _envelope(text: str) -> str:
-    """All remote text is data authored by the change under investigation."""
-    return f"{UNTRUSTED_OPEN}\n{text}\n{UNTRUSTED_CLOSE}"
+_envelope = envelope  # all remote text is data authored by the change under investigation
 
 
 def _slice(source: bytes, start: int, end: int) -> str:

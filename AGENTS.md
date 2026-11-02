@@ -19,12 +19,13 @@ goes through the GitHub API pinned to a sha.
 ## Commands
 
 ```bash
-task setup          # venv + deps + go grammar check
-task test           # pytest. Offline: no network, no model, no GCP
-task investigate RUN=<id>   # whole graph locally against a real failed run
-task deploy         # idempotent update of e2e-agent on Agent Runtime
-task debug VIEW=trace RUN=<id>   # tool calls the agent actually made
-task --list         # everything else (bq:*, debug, publish)
+task setup                  # venv + deps + go grammar check; also writes GITHUB_TOKEN (gh auth token) into .env
+task test                   # pytest. Offline: no network, no model, no GCP
+task investigate RUN=<id>   # whole graph locally against a real failed run; FEEDBACK="..." resumes a pause
+task web                    # ADK dev UI on the graph
+task deploy [AGENT=sre-coordinator]   # idempotent update on Agent Runtime; default AGENT=e2e
+task debug VIEW=trace RUN=<id>        # VIEW=report|trace|evidence|triage|logs
+task --list                 # everything else (bq:*, invoke, publish, provision)
 ```
 
 `task test` must pass before any commit. It takes ~3s; there is no excuse.
@@ -59,6 +60,11 @@ These are not style preferences.
    that came from the model or from a log is validated against something this
    run pinned (`rc.known_shas`, the pinned diff) before it is used or blamed.
    That validation lives in `verifier_linter`, never in the prompt.
+   Remote text reaches the model only through `tools/untrusted.py:envelope()`,
+   which escapes any `<untrusted_ci_output>` tag inside the text so a log cannot
+   close the envelope. Do not hand-build the wrapper in a tool. The envelope plus
+   `UNTRUSTED_RULE` lowers how often the model is steered; the linter is what
+   stops it mattering.
 
 6. **`verifier_linter` is deterministic and contains no LLM call.** It is the
    only thing that distinguishes a trustworthy report from a fabricated one. Do
@@ -101,23 +107,12 @@ These are not style preferences.
     be as strict as the real client - a fake that accepts any keyword proves
     nothing. A new guardrail needs a test that trips it.
 
-## Layout
+## Where things are
 
-| Path | What |
-|---|---|
-| `src/e2e_agent/agent/agent.py` | the graph: nodes and edges |
-| `src/e2e_agent/agent/nodes.py` | node bodies, budgets, the verifier |
-| `src/e2e_agent/agent/prompts.py` | investigator and deep-dive instructions |
-| `src/e2e_agent/tools/` | code and log tools exposed to the model |
-| `src/e2e_agent/github/client.py` | the only path to source bytes |
-| `src/e2e_agent/analytics/` | BigQuery row shapes and writes |
-| `src/e2e_agent/run_context.py` | pinning a run to frozen shas |
-| `deploy/e2e-agent.env` | pinned Agent Runtime env for e2e-agent |
-| `deploy/deploy.sh` | `agents-cli deploy` for both engines |
-| `deploy/provision.sh` | bash + gcloud project setup: APIs, buckets, secret, dataset |
-| `tests/test_bounds.py` | mechanical bound checks over `src/` and `deploy/` |
-| `.agents/skills/repo-review/SKILL.md` | the review guide (skill; `/repo-review`) |
-| `.github/workflows/claude-review.yml` | PR review on a `/review` comment; setup in `docs/ci-review.md` |
+Start from `src/e2e_agent/agent/agent.py` (graph) and `nodes.py` (node bodies,
+budgets, verifier). `src/e2e_agent/github/client.py` is the only path to source
+bytes. PR review: `.agents/skills/repo-review/SKILL.md` (`/repo-review`), also run
+by `.github/workflows/claude-review.yml` on a `/review` comment (`docs/ci-review.md`).
 
 ## Before you say you are done
 

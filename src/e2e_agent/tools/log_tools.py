@@ -12,16 +12,13 @@ from typing import Any, Optional
 from ..code.failure_address import parse_go_failures, strip_timestamps
 from ..github.client import GitHub
 from ..store import SourceStore, evidence_filename
+from .untrusted import envelope
 
 MAX_HITS = 60
 LOG_WINDOW_CAP = 120
 TAIL_LINES = 40
 
-UNTRUSTED_OPEN, UNTRUSTED_CLOSE = "<untrusted_ci_output>", "</untrusted_ci_output>"
-
-
-def _envelope(text: str) -> str:
-    return f"{UNTRUSTED_OPEN}\n{text}\n{UNTRUSTED_CLOSE}"
+_envelope = envelope
 
 
 class LogTools:
