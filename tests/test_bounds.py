@@ -1,4 +1,4 @@
-"""Mechanical bound checks over src/ and deploy/.
+"""Mechanical bound checks over src/, app/ and deploy/.
 
 Why these are tests and not a review checklist: the defects they look for are
 *absences* - a `timeout=` that was never typed, a counter that is incremented
@@ -21,6 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "e2e_agent"
 DEPLOY = ROOT / "deploy"
+APP = ROOT / "app"
 
 
 # --- deliberate exceptions, each with the reason it is one -------------------
@@ -162,7 +163,8 @@ def deployed_env_vars() -> set[str]:
 
 
 def _tree_findings() -> dict[str, str]:
-    files = sorted(SRC.rglob("*.py")) + sorted(DEPLOY.glob("*.py"))
+    files = sorted(SRC.rglob("*.py")) + sorted(DEPLOY.glob("*.py")) \
+        + sorted(APP.rglob("*.py"))
     found: dict[str, str] = {}
     for path in files:
         rel = path.relative_to(ROOT).as_posix()

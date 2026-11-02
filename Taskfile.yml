@@ -42,7 +42,7 @@ tasks:
 
   test:
     desc: Run the test suite (no network, no model)
-    cmds: ['{{.PY}} -m pytest -q']
+    cmds: ['{{.PY}} -m pytest -q ']
 
   # --- Agent Runtime ---------------------------------------------------------
 

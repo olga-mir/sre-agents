@@ -13,3 +13,4 @@ agents/*/.adk/
 artifacts/
 deployment_metadata.json
 deploy/metadata/
+deployment_metadata.json.lock
