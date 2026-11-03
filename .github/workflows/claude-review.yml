@@ -23,7 +23,7 @@ permissions:
 jobs:
   review:
     name: Review PR
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # One review per PR at a time; a second /review replaces the first. This is
     # job-level on purpose: workflow-level concurrency is evaluated before `if:`,
     # so any comment on the PR (including the review comment this job posts)
@@ -70,7 +70,7 @@ jobs:
       - name: Install ripgrep
         run: sudo apt-get install -y --no-install-recommends ripgrep
 
-      # uv is not preinstalled on ubuntu-latest; the next step needs it.
+      # uv is not preinstalled on ubuntu-24.04; the next step needs it.
       - name: Install uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
