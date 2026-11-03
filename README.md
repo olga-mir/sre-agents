@@ -67,7 +67,7 @@ Then:
 gcloud auth login
 gcloud auth application-default login
 GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh
-deploy/data_agent.sh            # prints ENV_INTELLIGENCE_AGENT; put it in .env
+deploy/data_agent.sh            # prints ENV_INTELLIGENCE_AGENT; registers the A2A card
 task deploy
 deploy/grant_agent_identity_iam.sh
 task deploy AGENT=sre-coordinator

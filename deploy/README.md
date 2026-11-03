@@ -10,7 +10,10 @@ Project and infra provisioning need to happen first before agent deployment, but
 # 1. APIs, the completions bucket, the eval dataset, and the GitHub App secret.
 GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh
 
-# 2. Data agent over ci_agent_eval. Copy the printed resource name into .env as ENV_INTELLIGENCE_AGENT.
+# 2. Data agent over ci_agent_eval, and its A2A card in Agent Registry.
+#    The data agent stays in us. The registry service is created in global,
+#    because us and eu reject manual registration. Copy the printed data-agent
+#    resource name into .env as ENV_INTELLIGENCE_AGENT.
 ENV_INTELLIGENCE_AGENT=<from-prev-step> deploy/data_agent.sh
 
 # 3. Deploy the working tree. .env needs GITHUB_APP_ID and
@@ -68,7 +71,7 @@ console.
 
 - APIs, the completions bucket, the GitHub App secret, and the
   BigQuery dataset (`deploy/provision.sh`)
-- The `environment-intelligence` data agent (`deploy/data_agent.sh`)
+- The `environment-intelligence` data agent and its Agent Registry service (`deploy/data_agent.sh`)
 - IAM for the agent principals (`deploy/grant_agent_identity_iam.sh`,
   `deploy/grant_coordinator_iam.sh`)
 
