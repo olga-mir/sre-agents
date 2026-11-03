@@ -14,7 +14,8 @@ Agent Runtime serialises events to JSON dicts, so the keys may be camelCase
 (`functionCall`) or snake_case; both are read. NOT yet confirmed against a
 live engine: that `stream_query(message=<Content dict>)` is accepted for a
 resume, and that the engine client exposes `get_session(user_id, session_id)`
-returning the session's events (used by `pending_interrupt`). Spike both first (see docs in the PR description).
+returning the session's events (used by `pending_interrupt`). Spike both
+against a live engine before relying on the resume path.
 """
 
 from __future__ import annotations

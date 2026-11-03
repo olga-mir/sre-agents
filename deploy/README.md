@@ -59,10 +59,7 @@ coordinator image carries no tree-sitter, GitHub client or GCS upload.
 update. `deploy.sh` keeps it at `agents/<agent>/deploy/deployment_metadata.json`
 (gitignored, contains resource names) and copies it in and out of the
 stage. Delete that file to deploy a new engine instead of updating the
-recorded one. **Migrating from the single-project layout:** metadata used
-to live at `deploy/metadata/<agent>.json`; `deploy.sh` falls back to it
-once if the new file is absent and saves it to the new place, so the first
-deploy still updates your existing engine instead of creating a second one.
+recorded one.
 
 Display names stay `e2e-agent` and `sre-coordinator`. Region is
 `us-central1` unless `AGENT_LOCATION` is set. Both engines run as

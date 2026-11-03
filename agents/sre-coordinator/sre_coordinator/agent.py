@@ -29,6 +29,8 @@ AGENT_LOCATION = os.environ.get("AGENT_LOCATION", "us-central1")
 MODEL = os.environ.get("E2E_AGENT_MODEL", "gemini-3.7-flash")
 MODEL_LOCATION = os.environ.get("E2E_AGENT_LOCATION") or os.environ.get("GOOGLE_CLOUD_LOCATION") or "global"
 
+# Retry bounds are deliberately defaulted, not pinned in deploy/runtime.env:
+# 3 attempts, 2s initial delay, 30s max delay between attempts.
 model_adapter = Gemini(
     model=MODEL,
     client_kwargs={"location": MODEL_LOCATION},

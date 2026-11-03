@@ -29,9 +29,6 @@ PROJECT="${GOOGLE_CLOUD_PROJECT:?set GOOGLE_CLOUD_PROJECT}"
 REGION="${AGENT_LOCATION:-us-central1}"
 ENV_FILE="${AGENT_DIR}/deploy/runtime.env"
 METADATA="${AGENT_DIR}/deploy/deployment_metadata.json"
-# Before the per-agent layout, metadata lived here. Without it a deploy
-# would create a second engine instead of updating the recorded one.
-LEGACY_METADATA="${ROOT}/deploy/metadata/${NAME}.json"
 
 for var in "${REQUIRED_ENV[@]}"; do
   : "${!var:?set ${var}}"
@@ -124,9 +121,6 @@ trap cleanup EXIT
 
 if [[ -f "${METADATA}" ]]; then
   cp "${METADATA}" "${STAGE}/deployment_metadata.json"
-elif [[ -f "${LEGACY_METADATA}" ]]; then
-  echo "using legacy ${LEGACY_METADATA}; it is saved to ${METADATA} after this deploy" >&2
-  cp "${LEGACY_METADATA}" "${STAGE}/deployment_metadata.json"
 fi
 
 cd "${STAGE}"
