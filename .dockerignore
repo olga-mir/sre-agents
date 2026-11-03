@@ -9,7 +9,6 @@ analytics/bq/seed
 *.egg-info
 uv.lock
 deployment_metadata.json
-deploy/metadata
 .google-agents-cli
 artifacts
 model-garden/endpoint.env

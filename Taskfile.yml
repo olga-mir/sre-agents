@@ -24,9 +24,9 @@ tasks:
     cmds: [task --list]
 
   setup:
-    desc: Create the venv and install the agent, tests, and ADK
+    desc: Create the workspace venv (every agent, the shared lib, tests, ADK)
     cmds:
-      - uv sync --python 3.12 --extra dev
+      - uv sync --python 3.12
       - test -f .env || cp .env.example .env
       - task: local-token
       - '{{.PY}} -c "import tree_sitter_go; from tree_sitter import Parser, Language; Parser(Language(tree_sitter_go.language())); print(''go grammar ok'')"'
@@ -59,15 +59,33 @@ tasks:
     cmds:
       - uv sync --python 3.12
 
-  deploy:
-    desc: 'Idempotently deploy/update an agent with agents-cli. AGENT=e2e (default) or sre-coordinator'
+  # Each agent is its own deployment: own image, own env, own engine, own IAM
+  # grants. deploy/deploy.sh stages agents/<agent>/ plus libs/agent_serving
+  # and runs agents-cli there. See deploy/README.md.
+  deploy:e2e:
+    desc: Idempotently deploy/update e2e-agent on Agent Runtime
     cmds:
-      - |
-        GOOGLE_CLOUD_PROJECT={{.GCP}} \
-        AGENT_LOCATION={{.AGENT_LOCATION}} \
-        AGENT="{{.AGENT | default "e2e"}}" \
-        {{if .COMPLETIONS_BUCKET}}COMPLETIONS_BUCKET={{.COMPLETIONS_BUCKET}}{{end}} \
-        bash deploy/deploy.sh
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} AGENT_LOCATION={{.AGENT_LOCATION}} {{if .COMPLETIONS_BUCKET}}COMPLETIONS_BUCKET={{.COMPLETIONS_BUCKET}}{{end}} bash deploy/deploy.sh e2e-agent
+
+  deploy:coordinator:
+    desc: Idempotently deploy/update sre-coordinator on Agent Runtime
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} AGENT_LOCATION={{.AGENT_LOCATION}} bash deploy/deploy.sh sre-coordinator
+
+  deploy:
+    desc: 'Deploy one agent by name. AGENT=e2e (default) or sre-coordinator'
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} AGENT_LOCATION={{.AGENT_LOCATION}} {{if .COMPLETIONS_BUCKET}}COMPLETIONS_BUCKET={{.COMPLETIONS_BUCKET}}{{end}} bash deploy/deploy.sh "{{.AGENT | default "e2e"}}"
+
+  iam:e2e:
+    desc: Grant the e2e-agent Agent Identity its roles (run after its first deploy)
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} bash agents/e2e-agent/deploy/grant_iam.sh
+
+  iam:coordinator:
+    desc: Grant the sre-coordinator Agent Identity its roles (run after its first deploy)
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} bash agents/sre-coordinator/deploy/grant_iam.sh
 
   invoke:
     desc: 'Invoke the deployed e2e-agent. RUN=<id>'
@@ -93,71 +111,23 @@ tasks:
             print(f'{r.api_resource.name}\t{getattr(r.api_resource, \"display_name\", \"\")}')
         "
 
-  publish:
-    desc: 'List Gemini Enterprise apps, or register an agent. AGENT=e2e (default) or sre-coordinator. GEMINI_ENTERPRISE_APP_ID is the app id'
+  publish:e2e:
+    desc: 'Register e2e-agent with Gemini Enterprise, or list apps. GEMINI_ENTERPRISE_APP_ID is the app id'
     deps: [deploy:sdk]
     cmds:
-      - |
-        set -euo pipefail
-        if ! command -v agents-cli >/dev/null 2>&1; then
-          echo "agents-cli not on PATH. Install: uv tool install google-agents-cli" >&2
-          exit 1
-        fi
-        APP_ID="{{.GEMINI_ENTERPRISE_APP_ID}}"
-        if [ -z "$APP_ID" ]; then
-          agents-cli publish gemini-enterprise --list --project-id {{.GCP}}
-          exit 0
-        fi
-        case "$APP_ID" in
-          projects/*)
-            APP="$APP_ID"
-            ;;
-          *)
-            APP="projects/{{.GCP}}/locations/global/collections/default_collection/engines/${APP_ID}"
-            ;;
-        esac
-        AGENT="{{.AGENT | default "e2e"}}"
-        case "$AGENT" in
-          e2e|e2e-agent)
-            NAME=e2e-agent
-            DESCRIPTION="SRE agent that investigates CI/E2E failures"
-            TOOL_DESCRIPTION="Investigate a failed GitHub Actions run. Pass TriggerEvent JSON with repo and run_id, e.g. {\"trigger_source\":\"TEST_OPERATOR\",\"repo\":\"owner/repo\",\"run_id\":\"123\"}."
-            ;;
-          sre|sre-coordinator|sre_coordinator)
-            NAME=sre-coordinator
-            DESCRIPTION="Single front door for CI/CD environment health: answers questions over failure history, and can trigger a live investigation of a specific failed run."
-            TOOL_DESCRIPTION="Ask about CI failure history, or investigate a specific GitHub Actions run by repo and run id."
-            ;;
-          *)
-            echo "AGENT must be e2e or sre-coordinator" >&2
-            exit 1
-            ;;
-        esac
-        ENGINE="{{.ENGINE}}"
-        if [ -z "$ENGINE" ]; then
-          ENGINE="$(GOOGLE_CLOUD_PROJECT={{.GCP}} NAME="$NAME" {{.PY}} -c "
-        import agentplatform, os, sys
-        name = os.environ['NAME']
-        client = agentplatform.Client(project=os.environ['GOOGLE_CLOUD_PROJECT'], location='{{.AGENT_LOCATION}}')
-        for r in client.runtimes.list():
-            if getattr(r.api_resource, 'display_name', None) == name:
-                print(r.api_resource.name)
-                sys.exit(0)
-        sys.exit(f'no Agent Runtime named {name}; pass ENGINE=projects/.../reasoningEngines/...')
-        ")"
-        fi
-        echo "Publishing $ENGINE to $APP as ADK ($NAME)..."
-        # agents-cli also reads GEMINI_ENTERPRISE_APP_ID. Pass the full name
-        # so a short id in .env is not what the CLI sees.
-        GEMINI_ENTERPRISE_APP_ID="$APP" agents-cli publish gemini-enterprise \
-          --registration-type adk \
-          --deployment-target agent_runtime \
-          --agent-runtime-id "$ENGINE" \
-          --gemini-enterprise-app-id "$APP" \
-          --display-name "$NAME" \
-          --description "$DESCRIPTION" \
-          --tool-description "$TOOL_DESCRIPTION" \
-          --project-id {{.GCP}}
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} AGENT_LOCATION={{.AGENT_LOCATION}} GEMINI_ENTERPRISE_APP_ID="{{.GEMINI_ENTERPRISE_APP_ID}}" ENGINE="{{.ENGINE}}" bash deploy/publish.sh e2e-agent
+
+  publish:coordinator:
+    desc: 'Register sre-coordinator with Gemini Enterprise, or list apps'
+    deps: [deploy:sdk]
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} AGENT_LOCATION={{.AGENT_LOCATION}} GEMINI_ENTERPRISE_APP_ID="{{.GEMINI_ENTERPRISE_APP_ID}}" ENGINE="{{.ENGINE}}" bash deploy/publish.sh sre-coordinator
+
+  publish:
+    desc: 'Register an agent by name. AGENT=e2e (default) or sre-coordinator'
+    deps: [deploy:sdk]
+    cmds:
+      - GOOGLE_CLOUD_PROJECT={{.GCP}} AGENT_LOCATION={{.AGENT_LOCATION}} GEMINI_ENTERPRISE_APP_ID="{{.GEMINI_ENTERPRISE_APP_ID}}" ENGINE="{{.ENGINE}}" bash deploy/publish.sh "{{.AGENT | default "e2e"}}"
 
   # --- Core execution --------------------------------------------------------
 
@@ -167,8 +137,12 @@ tasks:
       - 'GOOGLE_CLOUD_PROJECT={{.GCP}} {{.CLI}} --repo {{.REPO}} investigate --run {{.RUN}} --out runs {{if .FEEDBACK}}--feedback "{{.FEEDBACK}}"{{end}}'
 
   web:
-    desc: 'Open the ADK dev UI on the graph. WEB_PORT=<port> to override (default 8080)'
-    cmds: ['GOOGLE_CLOUD_PROJECT={{.GCP}} .venv/bin/adk web agents --port {{.WEB_PORT}}']
+    desc: 'Open the ADK dev UI on the e2e-agent graph. WEB_PORT=<port> to override (default 8080)'
+    cmds: ['GOOGLE_CLOUD_PROJECT={{.GCP}} .venv/bin/adk web agents/e2e-agent --port {{.WEB_PORT}}']
+
+  web:coordinator:
+    desc: 'Open the ADK dev UI on the sre-coordinator. Needs ENV_INTELLIGENCE_AGENT'
+    cmds: ['GOOGLE_CLOUD_PROJECT={{.GCP}} .venv/bin/adk web agents/sre-coordinator --port {{.WEB_PORT}}']
 
   clean:
     desc: Delete cached source bytes and past run dumps

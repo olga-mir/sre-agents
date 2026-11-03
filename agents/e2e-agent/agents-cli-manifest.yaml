@@ -1,0 +1,14 @@
+name: e2e-agent
+acli_version: 1.12.0
+agent_directory: e2e_agent
+region: us-central1
+base_template: adk_python
+language: python
+framework: google-adk
+create_params:
+  root_agent_name: sre_investigation
+  deployment_target: agent_runtime
+  session_type: none
+  cicd_runner: skip
+  agent_gateway: false
+  agent_guidance_filename: AGENTS.md

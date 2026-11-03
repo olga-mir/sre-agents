@@ -62,7 +62,7 @@ Stay on the ADK-native path and stop treating A2A as a prerequisite for GE
 or Registry.
 
 1. `task deploy` runs `agents-cli deploy`. The image's process is
-   `uvicorn app.fast_api_app:app`, which serves `AdkApp` on
+   `uvicorn agent_serving.fast_api_app:app`, which serves `AdkApp` on
    `/api/reasoning_engine` and `/api/stream_reasoning_engine`. `agents-cli`
    records `agent_framework: google-adk` and `class_methods` from
    `AdkApp.register_operations()` (sessions + `stream_query`).

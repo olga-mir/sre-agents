@@ -12,6 +12,26 @@ For maintained ADK patterns, see [google/adk-recipes/core/python](https://github
 
 Demo prompts are in [`docs/demo-prompts.md`](docs/demo-prompts.md). Design notes are under [`docs/`](docs/README.md).
 
+## Layout
+
+Each agent is its own deployment: its own image, pinned env, IAM grants and Agent Runtime engine. The repo root is only a `uv` workspace so local development has one venv and one `task test`.
+
+```
+agents/
+  e2e-agent/            deployment #1
+    e2e_agent/            the package (graph, tools, GitHub client, BigQuery writer)
+    Dockerfile  pyproject.toml  requirements.txt  agents-cli-manifest.yaml
+    deploy/               deploy.conf, runtime.env (pinned prod env), grant_iam.sh
+  sre-coordinator/      deployment #2 - same shape, much lighter image
+    sre_coordinator/
+    ...
+libs/agent_serving/     the Agent Runtime HTTP harness both images run, plus OTLP auth
+deploy/                 generic lifecycle scripts: deploy.sh, stage.sh, publish.sh, provision.sh
+analytics/  docs/  model-garden/  tests/
+```
+
+The coordinator never imports e2e-agent; it calls the deployed engine over `stream_query`. `tests/test_layout.py` fails if either agent starts depending on the other, or if an agent directory stops being deployable alone.
+
 ## Run
 
 Set `GOOGLE_CLOUD_PROJECT` in `.env` (see `.env.example`). `task --list` shows every target.
@@ -50,16 +70,16 @@ This must be done manually before running script.
 
 1. **GitHub App for the running agent.** Create one at [github.com/settings/apps](https://github.com/settings/apps) and install it on the repo e2e-agent will read (`E2E_AGENT_REPO`, default `agent-substrate/substrate`). Grant read on Actions, Contents, and Pull requests. Put the App ID and the installation ID in `.env` as `GITHUB_APP_ID` and `GITHUB_APP_INSTALLATION_ID`. Generate a private key. The provision command below uploads it to secret `e2e-agent-github-app-private-key`. This app is what the deployed agent uses. Local `task investigate` still uses the `GITHUB_TOKEN` that `task setup` writes.
 
-2. **Gemini Enterprise app.** Create the app in the console if the project does not have one. Put the app id in `.env` as `GEMINI_ENTERPRISE_APP_ID` (the `engines/` segment). `task publish` builds the resource name. With that variable unset, it lists apps. Registration is:
+2. **Gemini Enterprise app.** Create the app in the console if the project does not have one. Put the app id in `.env` as `GEMINI_ENTERPRISE_APP_ID` (the `engines/` segment). `task publish:*` builds the resource name. With that variable unset, it lists apps. Registration is:
 
 ```bash
-task publish
-task publish AGENT=sre-coordinator
+task publish:e2e
+task publish:coordinator
 ```
 
 3. **OPTIONAL Model Garden.** `model-garden/` deploys a GPU endpoint and bills while the replica is up. `e2e-agent` stays on `gemini-3.7-flash` unless reconfigured and re-deployed. `model-garden/smoke.sh` is a smoke test for deployment. See [`model-garden/README.md`](model-garden/README.md).
 
-`task deploy` needs `agents-cli` on `PATH` (`uv tool install google-agents-cli`). It uploads the working tree and Agent Engine builds `Dockerfile`. You deploy what is checked out locally.
+`task deploy:*` needs `agents-cli` on `PATH` (`uv tool install google-agents-cli`). Each task stages one agent's directory plus `libs/agent_serving` and uploads that; Agent Engine builds the agent's own `Dockerfile`. You deploy what is checked out locally.
 
 Then:
 
@@ -68,13 +88,13 @@ gcloud auth login
 gcloud auth application-default login
 GITHUB_APP_PRIVATE_KEY_FILE=/path/to/app.pem deploy/provision.sh
 deploy/data_agent.sh            # prints ENV_INTELLIGENCE_AGENT; registers the A2A card
-task deploy
-deploy/grant_agent_identity_iam.sh
-task deploy AGENT=sre-coordinator
-deploy/grant_coordinator_iam.sh
+task deploy:e2e
+task iam:e2e                    # once, after the first deploy
+task deploy:coordinator
+task iam:coordinator            # once, after the first deploy
 task invoke                     # RUN=<id>
 ```
 
-Run the grant scripts after the first deploy of each engine. The agent principal does not exist before that. `agents-cli` grants a baseline role set on first create. Secret access, BigQuery, the completions bucket, and the coordinator's data-agent roles still come from those scripts. `task deploy AGENT=sre-coordinator` needs `ENV_INTELLIGENCE_AGENT`. `E2E_AGENT_ENGINE` is optional: unset, the coordinator looks up the runtime named `e2e-agent`.
+Run the grant scripts after the first deploy of each engine. The agent principal does not exist before that. `agents-cli` grants a baseline role set on first create. Secret access, BigQuery, the completions bucket, and the coordinator's data-agent roles still come from those scripts. `task deploy:coordinator` needs `ENV_INTELLIGENCE_AGENT`. `E2E_AGENT_ENGINE` is optional: unset, the coordinator looks up the runtime named `e2e-agent`.
 
 Gemini Enterprise calls e2e-agent with `:streamQuery`. A local MCP server is `python -m e2e_agent.agent.mcp_entrypoint`. The tool takes TriggerEvent JSON.

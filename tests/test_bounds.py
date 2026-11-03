@@ -1,4 +1,4 @@
-"""Mechanical bound checks over src/, app/ and deploy/.
+"""Mechanical bound checks over every agent package, libs/ and deploy/.
 
 Why these are tests and not a review checklist: the defects they look for are
 *absences* - a `timeout=` that was never typed, a counter that is incremented
@@ -19,19 +19,23 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "e2e_agent"
 DEPLOY = ROOT / "deploy"
-APP = ROOT / "app"
+E2E = ROOT / "agents" / "e2e-agent"
+COORDINATOR = ROOT / "agents" / "sre-coordinator"
+# The e2e-agent graph: budgets and the verifier live here.
+SRC = E2E / "e2e_agent"
+# Everything that runs in an Agent Runtime container.
+PACKAGES = [SRC, COORDINATOR / "sre_coordinator", ROOT / "libs" / "agent_serving" / "agent_serving"]
 
 
 # --- deliberate exceptions, each with the reason it is one -------------------
 
 ACCEPTED: dict[str, str] = {
-    "while_true:src/e2e_agent/github/client.py:_paged":
+    "while_true:agents/e2e-agent/e2e_agent/github/client.py:_paged":
         "GitHub pagination. Each page is one bounded HTTP call, but the page "
         "count is not capped. Capping it means truncating results, which is a "
         "product decision, not a bound.",
-    "uncancellable_thread:src/e2e_agent/agent/nodes.py:record_outcome":
+    "uncancellable_thread:agents/e2e-agent/e2e_agent/agent/nodes.py:record_outcome":
         "The BigQuery client is sync. Workflow cancellation does not reach this "
         "thread, so every wait inside it carries its own deadline "
         "(E2E_AGENT_BQ_TIMEOUT_S) instead of relying on an outer timeout.",
@@ -152,9 +156,9 @@ def compared_keys(tree: ast.AST) -> set[str]:
 
 
 def deployed_env_vars() -> set[str]:
-    """Keys pinned in deploy/e2e-agent.env, the file task deploy sends."""
+    """Keys pinned in agents/e2e-agent/deploy/runtime.env, the file deploy sends."""
     keys: set[str] = set()
-    for line in (DEPLOY / "e2e-agent.env").read_text().splitlines():
+    for line in (E2E / "deploy" / "runtime.env").read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -163,8 +167,8 @@ def deployed_env_vars() -> set[str]:
 
 
 def _tree_findings() -> dict[str, str]:
-    files = sorted(SRC.rglob("*.py")) + sorted(DEPLOY.glob("*.py")) \
-        + sorted(APP.rglob("*.py"))
+    files = [f for pkg in PACKAGES for f in sorted(pkg.rglob("*.py"))] \
+        + sorted(DEPLOY.glob("*.py"))
     found: dict[str, str] = {}
     for path in files:
         rel = path.relative_to(ROOT).as_posix()
@@ -209,7 +213,7 @@ def test_budget_counters_are_compared_or_declared():
 def test_bound_knobs_are_pinned_in_the_deployed_config():
     missing = sorted(BOUND_KNOBS - deployed_env_vars())
     assert not missing, (
-        f"bound knobs not pinned in deploy/e2e-agent.env: {missing}. "
+        f"bound knobs not pinned in agents/e2e-agent/deploy/runtime.env: {missing}. "
         "In production the bound would be whatever the code default happens "
         "to be, which is not a number anyone chose."
     )
@@ -217,15 +221,16 @@ def test_bound_knobs_are_pinned_in_the_deployed_config():
 
 def test_devconnect_extra_is_gone():
     """The optional extra was a name left over from Developer Connect."""
-    assert "devconnect" not in (ROOT / "pyproject.toml").read_text()
+    for pyproject in ROOT.glob("**/pyproject.toml"):
+        if ".venv" not in pyproject.parts:
+            assert "devconnect" not in pyproject.read_text(), pyproject
     assert "devconnect" not in (ROOT / "Taskfile.yml").read_text()
 
 
 def test_deploy_is_agents_cli_without_developer_connect():
     script = (DEPLOY / "deploy.sh").read_text()
     assert "agents-cli deploy" in script
-    assert "e2e-agent.env" in script
-    assert "sre-coordinator.env" in script
+    assert "deploy/runtime.env" in script
     assert "mktemp" in script
     assert "developer_connect" not in script
     assert "GOOGLE_CLOUD_PROJECT|GITHUB_TOKEN" in script
@@ -245,9 +250,10 @@ def test_deploy_is_agents_cli_without_developer_connect():
     ]
     assert not hidden, hidden
     assert "SECRET_API_PROPAGATION_DEADLINE_SECONDS=180" in provision
-    env = (DEPLOY / "e2e-agent.env").read_text()
-    assert "GOOGLE_CLOUD_PROJECT=" not in env
-    assert "GITHUB_TOKEN=" not in env
+    for agent in (E2E, COORDINATOR):
+        env = (agent / "deploy" / "runtime.env").read_text()
+        assert "GOOGLE_CLOUD_PROJECT=" not in env
+        assert "GITHUB_TOKEN=" not in env
 
 
 # --- the rules themselves (teeth, independent of the tree) ------------------

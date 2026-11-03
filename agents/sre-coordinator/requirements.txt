@@ -1,0 +1,10 @@
+# Runtime pins for the sre-coordinator container. The Dockerfile installs
+# agent_serving, then the package, then this file. See deploy/runtime.env.
+
+certifi==2026.10.23
+google-adk[otel-gcp]==2.13.0
+# 2.7.0 ships agentplatform.frameworks. AdkApp.set_up() and the runtime
+# telemetry harness both import google.cloud.aiplatform.
+google-cloud-aiplatform[agent_engines]==2.7.0
+# Installs the GenAI instrumentor that SPAN_ONLY content capture needs.
+opentelemetry-instrumentation-google-genai>=1.3b0,<2

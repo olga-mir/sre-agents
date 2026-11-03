@@ -4,7 +4,7 @@ run-name: "Release ${{ inputs.version }}"
 
 # Manually triggered. Runs the offline test suite on the commit being released,
 # then tags that commit and creates a GitHub release with generated notes.
-# Deploying to Agent Runtime is a separate step (`task deploy`).
+# Deploying to Agent Runtime is a separate step (`task deploy:e2e`, `task deploy:coordinator`).
 
 on:
   workflow_dispatch:
@@ -47,7 +47,7 @@ jobs:
 
       # Offline: no network, no model, no GCP credentials (AGENTS.md invariant 13).
       - name: Run tests
-        run: uv run --python 3.12 --extra dev pytest -q
+        run: uv run --python 3.12 pytest -q
 
   release:
     name: Create Release

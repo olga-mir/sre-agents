@@ -1,7 +1,7 @@
 ---
 name: repo-review
 description: >-
-  Reviews a diff in this repo (src/e2e_agent/, deploy/) for liveness, loop
+  Reviews a diff in this repo (agents/*/, libs/, deploy/) for liveness, loop
   ownership, swallowed failures, trust-boundary gaps, resumability and cost, as
   an ADK Workflow graph on Agent Runtime. Use when asked to review a PR, a
   diff or a branch here, or when CI invokes /repo-review. Not for formatting,
@@ -41,7 +41,7 @@ Before the passes:
 
 # Code review guide
 
-For `src/e2e_agent` and `deploy/`: an ADK `Workflow` graph that runs on Agent
+For `agents/e2e-agent/e2e_agent`, `agents/sre-coordinator`, `libs/agent_serving` and `deploy/`: an ADK `Workflow` graph that runs on Agent
 Runtime, drives Gemini with model-chosen tool calls, reads GitHub, writes
 BigQuery and GCS, and pauses for a human. That shape decides what a review here
 has to look for, which is not what a review of a request/response service looks
@@ -67,14 +67,14 @@ catches the class of defect that is an *absence*, which reading cannot.
 
 ```bash
 # A wait with no deadline. .result(), .join(), .get(), requests/httpx without timeout=
-rg -n '\.result\(\s*\)|\.join\(\s*\)|\.wait\(\s*\)|Client\(\)\s*$' src/ deploy/
-rg -n 'httpx\.(get|post|put)\(|requests\.' src/ deploy/ | rg -v 'timeout'
+rg -n '\.result\(\s*\)|\.join\(\s*\)|\.wait\(\s*\)|Client\(\)\s*$' agents/ libs/ deploy/
+rg -n 'httpx\.(get|post|put)\(|requests\.' agents/ libs/ deploy/ | rg -v 'timeout'
 # Loops with no counter, and fan-out sized by someone else's list
-rg -n 'while True|while not |for attempt in range' src/
-rg -n 'asyncio\.gather|to_thread|Semaphore' src/
+rg -n 'while True|while not |for attempt in range' agents/ libs/
+rg -n 'asyncio\.gather|to_thread|Semaphore' agents/ libs/
 # Config that only exists in a deploy script, never read back by the code
-rg -n 'os\.environ' src/ | sed 's/.*environ[.get]*(\["\x27]\?\([A-Z_]*\).*/\1/' | sort -u
-rg -n '^[A-Z0-9_]+=' deploy/*.env
+rg -n 'os\.environ' agents/ libs/ | sed 's/.*environ[.get]*(\["\x27]\?\([A-Z_]*\).*/\1/' | sort -u
+rg -n '^[A-Z0-9_]+=' agents/*/deploy/runtime.env
 ```
 
 Every hit is a question, not a finding. The finding is a hit whose answer is "I
@@ -220,12 +220,12 @@ These behave like correctness properties here, because they end the run.
 
 ## Pass 7 - deployment, identity, and config that lives outside the code
 
-`deploy/e2e-agent.env` is the real production configuration for e2e-agent.
-`deploy/sre-coordinator.env` is the coordinator's. `task deploy` passes them
+`agents/e2e-agent/deploy/runtime.env` is the real production configuration for e2e-agent.
+`agents/sre-coordinator/deploy/runtime.env` is the coordinator's. `deploy/deploy.sh` passes them
 to `agents-cli`. `.env` is not: deploy moves it aside so a local
 `GITHUB_TOKEN` is not copied into the runtime.
 
-- Every tuning knob read by `src/` should be set there or documented as
+- Every tuning knob read by `agents/` or `libs/` should be set there or documented as
   defaulted. Every key set there should be read by something. Both drifts are
   findings.
 - A default in code and a value in the env file that disagree means local and
@@ -233,8 +233,8 @@ to `agents-cli`. `.env` is not: deploy moves it aside so a local
 - `os.environ.get(...)` at module scope freezes the value at import. Fine for
   deployment; wrong for anything a test or a runtime caller wants to change.
 - New Google API calls need the IAM grant in the same change:
-  `deploy/grant_agent_identity_iam.sh` for e2e-agent,
-  `deploy/grant_coordinator_iam.sh` for sre-coordinator. The role has to
+  `agents/e2e-agent/deploy/grant_iam.sh` for e2e-agent,
+  `agents/sre-coordinator/deploy/grant_iam.sh` for sre-coordinator. The role has to
   match the error: `401 Invalid Credentials` is a token problem, `403` is a
   binding problem. Adding a binding
   for a 401 does not fix it.
