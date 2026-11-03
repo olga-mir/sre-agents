@@ -1,17 +1,24 @@
 # AGENTS.md
 
 Project invariants for coding assistants. Read this before changing anything
-under `src/e2e_agent/` or `deploy/`. Read `.agents/skills/repo-review/SKILL.md`
+under `agents/`, `libs/` or `deploy/`. Read `.agents/skills/repo-review/SKILL.md`
 before reviewing a diff.
 
 ## What this is
 
-An ADK `Workflow` graph (`src/e2e_agent/agent/agent.py`) that investigates a
+An ADK `Workflow` graph (`agents/e2e-agent/e2e_agent/agent/agent.py`) that investigates a
 failed GitHub Actions run: it pins the run to frozen shas, lets Gemini drive
 code-navigation tools over the GitHub API, verifies the resulting claim
 deterministically, writes the outcome to BigQuery, and pauses for a human.
 It is deployed to Agent Runtime on Gemini Enterprise Agent Platform as
 `e2e-agent` and runs under an Agent Identity.
+
+A second agent, `sre-coordinator` (`agents/sre-coordinator/`), is the front door over
+the BigQuery data agent and e2e-agent. **Each agent is its own deployment**: own
+directory, Dockerfile, `pyproject.toml`, `agents-cli-manifest.yaml`, pinned env, IAM
+grants and engine. They share only `libs/agent_serving` (the Agent Runtime HTTP
+harness). Neither imports the other; the coordinator calls e2e-agent over
+`stream_query`. `tests/test_layout.py` enforces this.
 
 There is **no clone and no working tree** - GEAP has neither. Every source read
 goes through the GitHub API pinned to a sha.
@@ -22,10 +29,11 @@ goes through the GitHub API pinned to a sha.
 task setup                  # venv + deps + go grammar check; also writes GITHUB_TOKEN (gh auth token) into .env
 task test                   # pytest. Offline: no network, no model, no GCP
 task investigate RUN=<id>   # whole graph locally against a real failed run; FEEDBACK="..." resumes a pause
-task web                    # ADK dev UI on the graph
-task deploy [AGENT=sre-coordinator]   # idempotent update on Agent Runtime; default AGENT=e2e
+task web                    # ADK dev UI on the e2e-agent graph (web:coordinator for the other)
+task deploy:e2e             # idempotent update of e2e-agent on Agent Runtime
+task deploy:coordinator     # idempotent update of sre-coordinator, independently
 task debug VIEW=trace RUN=<id>        # VIEW=report|trace|evidence|triage|logs
-task --list                 # everything else (bq:*, invoke, publish, provision)
+task --list                 # everything else (bq:*, iam:*, invoke, publish:*, provision)
 ```
 
 `task test` must pass before any commit. It takes ~3s; there is no excuse.
@@ -92,15 +100,15 @@ These are not style preferences.
     plain edges, and the distinction travels in the payload (`exit_reason`,
     `audit_passed`), not in a route label.
 
-11. **Bound knobs are pinned in `deploy/e2e-agent.env`.** A bound whose
-    production value is whatever `src/` happens to default to is not a number
-    anyone chose. `task deploy` passes that file to `agents-cli deploy`. It is
-    the real production configuration. The coordinator's file is
-    `deploy/sre-coordinator.env`.
+11. **Bound knobs are pinned in `agents/e2e-agent/deploy/runtime.env`.** A bound
+    whose production value is whatever the code happens to default to is not a
+    number anyone chose. `deploy/deploy.sh` passes that file to `agents-cli
+    deploy`. It is the real production configuration. The coordinator's file is
+    `agents/sre-coordinator/deploy/runtime.env`.
 
 12. **A new Google API call needs its IAM grant in the same change.**
-    e2e-agent grants live in `deploy/grant_agent_identity_iam.sh`.
-    sre-coordinator grants live in `deploy/grant_coordinator_iam.sh`.
+    e2e-agent grants live in `agents/e2e-agent/deploy/grant_iam.sh`.
+    sre-coordinator grants live in `agents/sre-coordinator/deploy/grant_iam.sh`.
     Match the role to the API.
 
 13. **Tests are offline.** No network, no model, no GCP credentials. Fakes must
@@ -109,9 +117,16 @@ These are not style preferences.
 
 ## Where things are
 
-Start from `src/e2e_agent/agent/agent.py` (graph) and `nodes.py` (node bodies,
-budgets, verifier). `src/e2e_agent/github/client.py` is the only path to source
-bytes. PR review: `.agents/skills/repo-review/SKILL.md` (`/repo-review`), also run
+```
+agents/e2e-agent/        e2e_agent/ (package), Dockerfile, deploy/  - one deployment
+agents/sre-coordinator/  sre_coordinator/, Dockerfile, deploy/     - another
+libs/agent_serving/      Agent Runtime HTTP harness + OTLP auth, shared
+deploy/                  generic scripts: deploy.sh, stage.sh, publish.sh, provision.sh
+```
+
+Start from `agents/e2e-agent/e2e_agent/agent/agent.py` (graph) and `nodes.py` (node
+bodies, budgets, verifier). `agents/e2e-agent/e2e_agent/github/client.py` is the only
+path to source bytes. The coordinator is `agents/sre-coordinator/sre_coordinator/agent.py`. PR review: `.agents/skills/repo-review/SKILL.md` (`/repo-review`), also run
 by `.github/workflows/claude-review.yml` on a `/review` comment (`docs/ci-review.md`).
 
 ## Before you say you are done
@@ -119,5 +134,5 @@ by `.github/workflows/claude-review.yml` on a `/review` comment (`docs/ci-review
 - `task test` passes.
 - Any new blocking call has a deadline, and its library default is in a comment.
 - Any new failure path is observable by a human, not only by a log reader.
-- Any new knob is in `deploy/e2e-agent.env` or `deploy/sre-coordinator.env`, or explicitly documented as defaulted.
+- Any new knob is in `agents/e2e-agent/deploy/runtime.env` or `agents/sre-coordinator/deploy/runtime.env`, or explicitly documented as defaulted.
 - The PR description names what is still unbounded and why.

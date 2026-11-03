@@ -1,6 +1,6 @@
 # Building the Graph: What the ADK Runtime Corrected
 
-**Status:** active. Implementation record for the graph in `src/e2e_agent/agent/`,
+**Status:** active. Implementation record for the graph in `agents/e2e-agent/e2e_agent/agent/`,
 built against **ADK 2.8.0** and run end to end against real failed runs in
 [`agent-substrate/substrate`](https://github.com/agent-substrate/substrate).
 

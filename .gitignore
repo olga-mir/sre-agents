@@ -7,10 +7,8 @@ uv.lock
 model-garden/endpoint.env
 runs/
 analytics/bq/seed/
-app/.adk/
 agents/*/.adk/
 .google-agents-cli/
 artifacts/
 deployment_metadata.json
-deploy/metadata/
 deployment_metadata.json.lock

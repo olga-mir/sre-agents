@@ -5,7 +5,7 @@
 # APIs, service identities, the completions bucket, the GitHub App private-key
 # secret, and the BigQuery dataset. Agent Identity principals do not
 # exist until the first deploy, so IAM for those principals is
-# grant_agent_identity_iam.sh and grant_coordinator_iam.sh.
+# agents/e2e-agent/deploy/grant_iam.sh and agents/sre-coordinator/deploy/grant_iam.sh.
 #
 #   deploy/provision.sh            # everything below
 #   deploy/provision.sh bigquery   # dataset and DDL only (task bq:seed)

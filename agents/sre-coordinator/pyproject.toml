@@ -1,0 +1,25 @@
+[project]
+name = "sre-coordinator"
+version = "0.1.0"
+description = "Front door over the environment-intelligence data agent and e2e-agent"
+requires-python = ">=3.11,<3.14"
+# No tree-sitter, httpx, or GitHub client here: this agent reaches e2e-agent
+# over Agent Runtime stream_query, not by importing it.
+dependencies = [
+    "agent-serving",
+    "google-adk[bigquery-analytics,gcp,otel-gcp]>=2.13.0,<3.0.0",
+    "google-cloud-agentplatform[agent-engines]>=2.7.0,<3.0.0",
+    "google-cloud-logging>=3.12.0,<4.0.0",
+    "opentelemetry-resourcedetector-gcp<=1.12.0a0",
+    "protobuf>=6.31.1,<7.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sre_coordinator"]
+
+[tool.uv.sources]
+agent-serving = { workspace = true }

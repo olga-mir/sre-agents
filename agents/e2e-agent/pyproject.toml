@@ -1,0 +1,39 @@
+[project]
+name = "e2e-agent"
+version = "0.1.0"
+description = "Source-code comprehension layer for the CI/E2E investigation agent (GEAP)"
+# The Dockerfile is python:3.12-slim. 3.11 stays the floor so a local
+# interpreter and that image stay in the same range.
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "agent-serving",
+    "httpx>=0.28.1",
+    "pydantic>=2.14.2",
+    "tree-sitter>=0.26.0",
+    "tree-sitter-language-pack>=1.23.1",
+    "tree-sitter-go>=0.25.0",
+    "pyjwt[crypto]>=2.15.1",
+    "aiohttp>=3.13.4",
+    "gcsfs>=2026.10.0",
+    "google-adk[bigquery-analytics,gcp,otel-gcp]>=2.13.0,<3.0.0",
+    "google-cloud-agentplatform[agent-engines]>=2.7.0,<3.0.0",
+    "google-cloud-aiplatform[evaluation]>=2.7.0,<3.0.0",
+    "google-cloud-logging>=3.12.0,<4.0.0",
+    "opentelemetry-resourcedetector-gcp<=1.12.0a0",
+    "protobuf>=6.31.1,<7.0.0",
+]
+
+[project.scripts]
+e2e-agent = "e2e_agent.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["e2e_agent"]
+
+# Local development resolves agent-serving from the workspace. The Dockerfile
+# installs ./agent_serving first, so pip never looks for it on PyPI.
+[tool.uv.sources]
+agent-serving = { workspace = true }
