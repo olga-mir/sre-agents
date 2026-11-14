@@ -1,20 +1,8 @@
-"""The coordinator -> e2e-agent edge. Offline: a strict fake engine, no GCP.
-
-sre_coordinator/__init__ imports agent.py, which builds GCP clients at
-import time, so the pure module is loaded by path instead.
-"""
-
-import importlib.util
-import sys
-from pathlib import Path
+"""The coordinator -> e2e-agent edge. Offline: a strict fake engine, no GCP."""
 
 import pytest
 
-_SPEC = importlib.util.spec_from_file_location(
-    "e2e_edge", Path(__file__).parents[1] / "sre_coordinator/e2e_edge.py")
-edge = importlib.util.module_from_spec(_SPEC)
-sys.modules["e2e_edge"] = edge  # @dataclass resolves annotations via sys.modules
-_SPEC.loader.exec_module(edge)
+from agent_serving import e2e_edge as edge
 
 
 def text(t):
@@ -57,6 +45,14 @@ class FakeEngine:
     def get_session(self, *, user_id, session_id):
         assert session_id in self.sessions, "unknown session"
         return {"id": session_id, "events": list(self.events)}
+
+    def list_sessions(self, *, user_id):
+        # Live shape (2026-11-14): a dict, not an iterable of sessions;
+        # an unknown user_id is an empty page, not an error.
+        if user_id != "u":
+            return {"sessions": []}
+        return {"sessions": [{"id": sid, "lastUpdateTime": n}
+                             for n, sid in enumerate(sorted(self.sessions))]}
 
 
 def test_start_done():
@@ -211,3 +207,41 @@ def test_unrecoverable_stream_error_is_runtime_error_not_a_crash():
         yield
     with pytest.raises(RuntimeError, match="nothing was recoverable"):
         edge.start(_StreamEngine(gen()), user_id="u", repo="o/r", run_id="1")
+
+
+def test_user_id_is_the_coordinators_filing_key():
+    assert edge.user_id_for("agent-substrate/substrate", "41135818266") == \
+        "sre-coordinator:agent-substrate/substrate:41135818266"
+
+
+def test_latest_session_id_picks_the_newest():
+    class Two(FakeEngine):
+        def list_sessions(self, *, user_id):
+            return {"sessions": [{"id": "old", "lastUpdateTime": 1.0},
+                                 {"id": "new", "lastUpdateTime": 2.0}, {"no": "id"}]}
+    assert edge.latest_session_id(Two([]), user_id="u") == "new"
+
+
+def test_latest_session_id_none_for_unknown_user():
+    eng = FakeEngine([])
+    eng.create_session(user_id="u")
+    assert edge.latest_session_id(eng, user_id="u") == "s1"
+    assert edge.latest_session_id(eng, user_id="someone-else") is None
+
+
+def test_resume_finish_with_no_text_is_done_not_failed():
+    """Live: finish routes to final_output and emits nothing."""
+    eng = FakeEngine([[text("report"), pause()], []])
+    first = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    r = edge.resume(eng, user_id="u", session_id=first["session_id"],
+                    interrupt_id=first["pending"]["interrupt_id"], decision="finish")
+    assert r["status"] == "done" and r["pending"] is None
+
+
+def test_resume_dig_deeper_with_no_text_stays_failed():
+    eng = FakeEngine([[text("report"), pause()], []])
+    first = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    r = edge.resume(eng, user_id="u", session_id=first["session_id"],
+                    interrupt_id=first["pending"]["interrupt_id"],
+                    decision="dig_deeper", focus="x.go")
+    assert r["status"] == "failed"

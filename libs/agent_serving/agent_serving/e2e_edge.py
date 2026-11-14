@@ -11,11 +11,19 @@ Wire shapes, from google-adk (workflow/utils/_workflow_hitl_utils.py):
     whose `id` is the RequestInput `interrupt_id`;
   - the reply is a function response with that same id and name.
 Agent Runtime serialises events to JSON dicts, so the keys may be camelCase
-(`functionCall`) or snake_case; both are read. NOT yet confirmed against a
-live engine: that `stream_query(message=<Content dict>)` is accepted for a
-resume, and that the engine client exposes `get_session(user_id, session_id)`
-returning the session's events (used by `pending_interrupt`). Spike both
-against a live engine before relying on the resume path.
+(`functionCall`) or snake_case; both are read.
+
+Confirmed against a live engine (2026-11-14): `engine.get_session(user_id=,
+session_id=)` returns a dict with camelCase `events`, and the pause is a
+`functionCall` named `adk_request_input` whose `id` equals
+`args.interruptId`. `user_id` is enforced: a session read with any other
+user_id fails 400 FAILED_PRECONDITION. A resume is `stream_query(message=<Content
+dict with function_response>)` on the same session; the engine accepts it and
+the graph continues from dormancy_gate (confirmed live, `finish` path).
+
+Shared by the coordinator and by anything else that attaches to a paused
+e2e-agent session (a human at a laptop included), so the wire-format parsing
+lives once, here.
 """
 
 from __future__ import annotations
@@ -63,6 +71,9 @@ class Engine(Protocol):
 
     def get_session(self, *, user_id: str, session_id: str) -> Any:
         """The remote session as a dict (or object) carrying `events`."""
+
+    def list_sessions(self, *, user_id: str) -> Any:
+        """`{"sessions": [...]}`; each carries `id` and `lastUpdateTime`."""
 
 
 @dataclass
@@ -185,6 +196,24 @@ def _session_id(session: Any) -> str:
     return str(sid)
 
 
+def user_id_for(repo: str, run_id: str) -> str:
+    """The user_id an investigation of (repo, run_id) is filed under.
+
+    The engine enforces it: a session read under any other user_id fails 400.
+    One definition, so whoever starts a run and whoever attaches to it agree.
+    """
+    return f"sre-coordinator:{repo}:{run_id}"
+
+
+def latest_session_id(engine: Engine, *, user_id: str) -> str | None:
+    """The newest session filed under user_id, or None when there is none."""
+    raw = engine.list_sessions(user_id=user_id)
+    sessions = raw.get("sessions") if isinstance(raw, dict) else getattr(raw, "sessions", None)
+    best = max((s for s in sessions or [] if isinstance(s, dict) and s.get("id")),
+               key=lambda s: s.get("lastUpdateTime") or 0, default=None)
+    return str(best["id"]) if best else None
+
+
 def start(engine: Engine, *, user_id: str, repo: str, run_id: str) -> E2EResult:
     """Open a remote session and run the investigation until it ends or pauses."""
     # trigger_source only accepts TEST_OPERATOR or SLACK_MANUAL
@@ -257,4 +286,12 @@ def resume(engine: Engine, *, user_id: str, session_id: str, interrupt_id: str,
     }
     scan = _scan(engine.stream_query(user_id=user_id, session_id=session_id,
                                      message=message))
-    return _result(session_id, scan)
+    result = _result(session_id, scan)
+    if decision == "finish" and result["status"] == "failed":
+        # Closing emits no text: the graph routes finish -> final_output and
+        # ends silently (confirmed live). "No text" is the expected outcome
+        # here, not a failure. dig_deeper must still produce a report or a
+        # pause, so its empty result stays "failed".
+        return E2EResult(status="done", report="Investigation closed.",
+                         pending=None, session_id=session_id)
+    return result
