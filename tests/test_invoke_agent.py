@@ -50,3 +50,31 @@ def test_truncated_chunk_before_events_exits_one():
 def test_socket_close_after_events_exits_zero():
     err = httpx.RemoteProtocolError("peer closed connection")
     assert invoke.consume(_events_then(err)) == 0
+
+
+def test_session_user_id_matches_the_one_session_mcp_looks_up(monkeypatch):
+    """A hardcoded user_id hides the session from session_status (not_found)."""
+    seen = {}
+
+    class Agent:
+        def stream_query(self, *, user_id, message):
+            seen["user_id"] = user_id
+            return iter([{"text": "ok"}])
+
+    class Runtime:
+        api_resource = type("R", (), {"display_name": "e2e-agent", "name": "e/1"})()
+
+    class Client:
+        def __init__(self, **_):
+            self.runtimes = type(
+                "Rts", (), {"list": lambda s: [Runtime()], "get": lambda s, name: Agent()}
+            )()
+
+    import agentplatform
+
+    monkeypatch.setattr(agentplatform, "Client", Client)
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "p")
+    monkeypatch.setenv("RUN", "123")
+    monkeypatch.setenv("REPO", "o/r")
+    assert invoke.main() == 0
+    assert seen["user_id"] == "sre-coordinator:o/r:123"
