@@ -80,6 +80,7 @@ class Engine(Protocol):
 class _Scan:
     texts: list[str]
     pending: Pending | None
+    output: str | None = None
 
 
 def _get(d: dict, *keys: str) -> Any:
@@ -144,19 +145,28 @@ def _events(stream: Iterable[Any]) -> Iterator[Any]:
 
 
 def _scan(events: Iterable[Any]) -> _Scan:
-    """Collect authored text and the request-input pause, if any.
+    """Collect the final report, authored text and the request-input pause.
 
-    Only text parts and the request-input call are kept. Other function-call
-    and function-response parts can carry a single tool's whole log dump and
-    crashed the google-genai client when fed back as this tool's response.
+    The final report is not a text part. final_output returns the rendered
+    report, which the stream carries as a top-level string `output` on an
+    event with empty `content` (confirmed live; intermediate nodes put dicts
+    there). Text parts flagged `thought` are the model's reasoning summaries,
+    not an answer, so they are dropped. Other function-call and
+    function-response parts can carry a single tool's whole log dump and
+    crashed the google-genai client when fed back as this tool's response, so
+    only text parts and the request-input call are kept.
     """
     texts: list[str] = []
     pending: Pending | None = None
+    output: str | None = None
     for n, event in enumerate(_events(events)):
         if n >= MAX_EVENTS:
             break
         if not isinstance(event, dict):
             continue
+        out = event.get("output")
+        if isinstance(out, str) and out.strip():
+            output = out  # last one wins: the terminal node's
         for part in (event.get("content") or {}).get("parts") or []:
             call = _get(part, "functionCall", "function_call")
             if call and call.get("name") == REQUEST_INPUT_CALL and call.get("id"):
@@ -167,23 +177,24 @@ def _scan(events: Iterable[Any]) -> _Scan:
                     message=str(args.get("message") or ""),
                 )
                 continue
-            if part.get("text"):
+            if part.get("text") and not part.get("thought"):
                 texts.append(part["text"])
-    return _Scan(texts=texts, pending=pending)
+    return _Scan(texts=texts, pending=pending, output=output)
 
 
 def _result(session_id: str | None, scan: _Scan) -> E2EResult:
-    report = "\n".join(scan.texts).strip()
     if scan.pending:
-        # The pause message is the report plus the finish/dig_deeper question;
-        # keep it as the report when no separate text arrived.
-        report = report or scan.pending["message"]
+        # The pause message is the rendered report plus the finish/dig_deeper
+        # question, which is what a human should be shown. Authored text here
+        # is the investigator's structured finding, not that.
+        report = scan.pending["message"] or "\n".join(scan.texts).strip()
         return E2EResult(status="needs_input", report=report[:REPORT_CAP],
                          pending=scan.pending, session_id=session_id)
+    report = (scan.output or "\n".join(scan.texts)).strip()
     if not report:
         return E2EResult(
             status="failed",
-            report="e2e-agent emitted no text - check its own session trace.",
+            report="e2e-agent produced no report - check its own session trace.",
             pending=None, session_id=session_id)
     return E2EResult(status="done", report=report[:REPORT_CAP],
                      pending=None, session_id=session_id)
@@ -288,10 +299,9 @@ def resume(engine: Engine, *, user_id: str, session_id: str, interrupt_id: str,
                                      message=message))
     result = _result(session_id, scan)
     if decision == "finish" and result["status"] == "failed":
-        # Closing emits no text: the graph routes finish -> final_output and
-        # ends silently (confirmed live). "No text" is the expected outcome
-        # here, not a failure. dig_deeper must still produce a report or a
-        # pause, so its empty result stays "failed".
+        # Fallback only: final_output normally returns the report as `output`.
+        # If a finish stream carried none, that is not a failure. dig_deeper
+        # must still produce a report, so its empty result stays "failed".
         return E2EResult(status="done", report="Investigation closed.",
                          pending=None, session_id=session_id)
     return result

@@ -68,7 +68,9 @@ def test_start_pause_carries_resume_handle():
     assert r["status"] == "needs_input"
     assert r["pending"]["interrupt_id"] == "deep_dive_request_0"
     assert r["session_id"] == "s1"
-    assert "report body" in r["report"]
+    # The human is shown the pause message (rendered report + question), not
+    # the model's authored text.
+    assert r["report"] == "Choose finish or dig_deeper"
 
 
 def test_pause_message_used_when_no_text():
@@ -196,7 +198,10 @@ def test_mischunked_stream_is_recovered_with_report_and_pause():
     r = edge.start(_StreamEngine(stream), user_id="u", repo="o/r", run_id="1")
     assert r["status"] == "needs_input"
     assert r["pending"]["interrupt_id"] == "deep_dive_request_0"
-    assert r["report"] == "first\nroot cause: X"
+    # Salvage still recovers every event after the desync, text and pause.
+    assert r["report"] == "Choose finish or dig_deeper"
+    scan = edge._scan(_mischunked(tool, text("root cause: X"), pause(), head=[text("first")]))
+    assert scan.texts == ["first", "root cause: X"]
 
 
 def test_unrecoverable_stream_error_is_runtime_error_not_a_crash():
@@ -245,3 +250,45 @@ def test_resume_dig_deeper_with_no_text_stays_failed():
                     interrupt_id=first["pending"]["interrupt_id"],
                     decision="dig_deeper", focus="x.go")
     assert r["status"] == "failed"
+
+
+# Shapes below are from a captured live stream_query (2026-11-14): the report is
+# a string `output` on an event with empty content; intermediate nodes put dicts
+# in `output`; reasoning summaries are text parts flagged `thought`.
+
+def thought(t):
+    return {"content": {"parts": [{"text": t, "thought": True}]}}
+
+
+def node_output(value):
+    return {"author": "sre_investigation", "content": {"parts": []}, "output": value}
+
+
+def test_reasoning_summaries_are_not_the_report():
+    eng = FakeEngine([[thought("**My thought process** Alright..."), text("real text")]])
+    r = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "done" and r["report"] == "real text"
+
+
+def test_final_report_is_read_from_output_not_text():
+    report = "LOW CONFIDENCE - verifier could not confirm\n**summary**\nverdict: X"
+    eng = FakeEngine([[node_output({"failure_id": "1"}), thought("hmm"),
+                       node_output(report), node_output(None)]])
+    r = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "done" and r["report"] == report
+
+
+def test_dict_output_from_an_intermediate_node_is_not_a_report():
+    eng = FakeEngine([[node_output({"failure_id": "1", "verdict": "X"})]])
+    r = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "failed"
+
+
+def test_resume_dig_deeper_returns_the_report_from_output():
+    report = "**one line**\nverdict: INTRODUCED_BY_COMMIT"
+    eng = FakeEngine([[text("r"), pause()], [thought("digging"), node_output(report)]])
+    first = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    r = edge.resume(eng, user_id="u", session_id=first["session_id"],
+                    interrupt_id=first["pending"]["interrupt_id"],
+                    decision="dig_deeper", focus="x.go")
+    assert r["status"] == "done" and r["report"] == report
