@@ -5,6 +5,7 @@ import os
 import sys
 
 import httpx
+from agent_serving import e2e_edge
 from google.genai import errors
 
 
@@ -90,8 +91,12 @@ def main() -> int:
     print(f"Invoking remote agent {engine_name} ({display_name})...")
     agent = client.runtimes.get(name=engine_name)
     payload = {"trigger_source": "TEST_OPERATOR", "repo": repo, "run_id": run_id}
+    # Filed under the same user_id the coordinator and deploy/session_mcp.py use,
+    # so a pause from this invocation can be attached to by (repo, run_id).
     return consume(
-        agent.stream_query(user_id="task-invoke-agent", message=json.dumps(payload))
+        agent.stream_query(
+            user_id=e2e_edge.user_id_for(repo, run_id), message=json.dumps(payload)
+        )
     )
 
 

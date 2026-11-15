@@ -19,7 +19,7 @@ from google.genai import types as genai_types
 
 import agentplatform
 
-from . import e2e_edge
+from agent_serving import e2e_edge
 
 PROJECT_ID = os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
 AGENT_LOCATION = os.environ.get("AGENT_LOCATION", "us-central1")
@@ -76,7 +76,7 @@ def _engine():
 
 
 def _user_id(repo: str, run_id: str) -> str:
-    return f"sre-coordinator:{repo}:{run_id}"
+    return e2e_edge.user_id_for(repo, run_id)
 
 
 def _record_handle(tool_context: ToolContext, repo: str, run_id: str,

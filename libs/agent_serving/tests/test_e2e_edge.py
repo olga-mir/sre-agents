@@ -1,20 +1,8 @@
-"""The coordinator -> e2e-agent edge. Offline: a strict fake engine, no GCP.
-
-sre_coordinator/__init__ imports agent.py, which builds GCP clients at
-import time, so the pure module is loaded by path instead.
-"""
-
-import importlib.util
-import sys
-from pathlib import Path
+"""The coordinator -> e2e-agent edge. Offline: a strict fake engine, no GCP."""
 
 import pytest
 
-_SPEC = importlib.util.spec_from_file_location(
-    "e2e_edge", Path(__file__).parents[1] / "sre_coordinator/e2e_edge.py")
-edge = importlib.util.module_from_spec(_SPEC)
-sys.modules["e2e_edge"] = edge  # @dataclass resolves annotations via sys.modules
-_SPEC.loader.exec_module(edge)
+from agent_serving import e2e_edge as edge
 
 
 def text(t):
@@ -58,6 +46,14 @@ class FakeEngine:
         assert session_id in self.sessions, "unknown session"
         return {"id": session_id, "events": list(self.events)}
 
+    def list_sessions(self, *, user_id):
+        # Live shape (2026-11-14): a dict, not an iterable of sessions;
+        # an unknown user_id is an empty page, not an error.
+        if user_id != "u":
+            return {"sessions": []}
+        return {"sessions": [{"id": sid, "lastUpdateTime": n}
+                             for n, sid in enumerate(sorted(self.sessions))]}
+
 
 def test_start_done():
     eng = FakeEngine([[text("root cause: X"), text("verified")]])
@@ -72,7 +68,9 @@ def test_start_pause_carries_resume_handle():
     assert r["status"] == "needs_input"
     assert r["pending"]["interrupt_id"] == "deep_dive_request_0"
     assert r["session_id"] == "s1"
-    assert "report body" in r["report"]
+    # The human is shown the pause message (rendered report + question), not
+    # the model's authored text.
+    assert r["report"] == "Choose finish or dig_deeper"
 
 
 def test_pause_message_used_when_no_text():
@@ -200,7 +198,10 @@ def test_mischunked_stream_is_recovered_with_report_and_pause():
     r = edge.start(_StreamEngine(stream), user_id="u", repo="o/r", run_id="1")
     assert r["status"] == "needs_input"
     assert r["pending"]["interrupt_id"] == "deep_dive_request_0"
-    assert r["report"] == "first\nroot cause: X"
+    # Salvage still recovers every event after the desync, text and pause.
+    assert r["report"] == "Choose finish or dig_deeper"
+    scan = edge._scan(_mischunked(tool, text("root cause: X"), pause(), head=[text("first")]))
+    assert scan.texts == ["first", "root cause: X"]
 
 
 def test_unrecoverable_stream_error_is_runtime_error_not_a_crash():
@@ -211,3 +212,83 @@ def test_unrecoverable_stream_error_is_runtime_error_not_a_crash():
         yield
     with pytest.raises(RuntimeError, match="nothing was recoverable"):
         edge.start(_StreamEngine(gen()), user_id="u", repo="o/r", run_id="1")
+
+
+def test_user_id_is_the_coordinators_filing_key():
+    assert edge.user_id_for("agent-substrate/substrate", "41135818266") == \
+        "sre-coordinator:agent-substrate/substrate:41135818266"
+
+
+def test_latest_session_id_picks_the_newest():
+    class Two(FakeEngine):
+        def list_sessions(self, *, user_id):
+            return {"sessions": [{"id": "old", "lastUpdateTime": 1.0},
+                                 {"id": "new", "lastUpdateTime": 2.0}, {"no": "id"}]}
+    assert edge.latest_session_id(Two([]), user_id="u") == "new"
+
+
+def test_latest_session_id_none_for_unknown_user():
+    eng = FakeEngine([])
+    eng.create_session(user_id="u")
+    assert edge.latest_session_id(eng, user_id="u") == "s1"
+    assert edge.latest_session_id(eng, user_id="someone-else") is None
+
+
+def test_resume_finish_with_no_text_is_done_not_failed():
+    """Live: finish routes to final_output and emits nothing."""
+    eng = FakeEngine([[text("report"), pause()], []])
+    first = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    r = edge.resume(eng, user_id="u", session_id=first["session_id"],
+                    interrupt_id=first["pending"]["interrupt_id"], decision="finish")
+    assert r["status"] == "done" and r["pending"] is None
+
+
+def test_resume_dig_deeper_with_no_text_stays_failed():
+    eng = FakeEngine([[text("report"), pause()], []])
+    first = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    r = edge.resume(eng, user_id="u", session_id=first["session_id"],
+                    interrupt_id=first["pending"]["interrupt_id"],
+                    decision="dig_deeper", focus="x.go")
+    assert r["status"] == "failed"
+
+
+# Shapes below are from a captured live stream_query (2026-11-14): the report is
+# a string `output` on an event with empty content; intermediate nodes put dicts
+# in `output`; reasoning summaries are text parts flagged `thought`.
+
+def thought(t):
+    return {"content": {"parts": [{"text": t, "thought": True}]}}
+
+
+def node_output(value):
+    return {"author": "sre_investigation", "content": {"parts": []}, "output": value}
+
+
+def test_reasoning_summaries_are_not_the_report():
+    eng = FakeEngine([[thought("**My thought process** Alright..."), text("real text")]])
+    r = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "done" and r["report"] == "real text"
+
+
+def test_final_report_is_read_from_output_not_text():
+    report = "LOW CONFIDENCE - verifier could not confirm\n**summary**\nverdict: X"
+    eng = FakeEngine([[node_output({"failure_id": "1"}), thought("hmm"),
+                       node_output(report), node_output(None)]])
+    r = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "done" and r["report"] == report
+
+
+def test_dict_output_from_an_intermediate_node_is_not_a_report():
+    eng = FakeEngine([[node_output({"failure_id": "1", "verdict": "X"})]])
+    r = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    assert r["status"] == "failed"
+
+
+def test_resume_dig_deeper_returns_the_report_from_output():
+    report = "**one line**\nverdict: INTRODUCED_BY_COMMIT"
+    eng = FakeEngine([[text("r"), pause()], [thought("digging"), node_output(report)]])
+    first = edge.start(eng, user_id="u", repo="o/r", run_id="1")
+    r = edge.resume(eng, user_id="u", session_id=first["session_id"],
+                    interrupt_id=first["pending"]["interrupt_id"],
+                    decision="dig_deeper", focus="x.go")
+    assert r["status"] == "done" and r["report"] == report
